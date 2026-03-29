@@ -136,20 +136,20 @@ private fun ItemRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(
-            checked = item.checked,
+            checked = item.fields.checked,
             onCheckedChange = { onCheckedChange() },
             colors = CheckboxDefaults.colors(
                 checkedColor = MaterialTheme.colorScheme.primary,
             ),
         )
         Text(
-            text = item.name,
+            text = item.fields.name,
             modifier = Modifier.weight(1f).padding(start = 8.dp),
-            textDecoration = if (item.checked) TextDecoration.LineThrough else null,
+            textDecoration = if (item.fields.checked) TextDecoration.LineThrough else null,
         )
-        if (item.quantity != 1.0) {
+        if (item.fields.quantity != 1.0) {
             Text(
-                text = formatQuantity(item.quantity),
+                text = formatQuantity(item.fields.quantity),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

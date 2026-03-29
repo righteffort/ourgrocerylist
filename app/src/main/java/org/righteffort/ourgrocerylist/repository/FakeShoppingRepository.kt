@@ -20,10 +20,10 @@ class FakeShoppingRepository : ShoppingRepository {
                 if (it.id == command.newSnapshot.id) command.newSnapshot else it
             }
             is Command.CheckItem -> items.value.map {
-                if (it.id == command.item.id) it.copy(checked = true) else it
+                if (it.id == command.item.id) it.copy(fields = it.fields.copy(checked = true)) else it
             }
             is Command.UncheckItem -> items.value.map {
-                if (it.id == command.item.id) it.copy(checked = false) else it
+                if (it.id == command.item.id) it.copy(fields = it.fields.copy(checked = false)) else it
             }
         }
     }

@@ -9,11 +9,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.righteffort.ourgrocerylist.model.Command
+import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.model.ShoppingItem
 import org.righteffort.ourgrocerylist.repository.ShoppingRepository
 import java.util.UUID
 
-private val ITEM_COMPARATOR = compareBy<ShoppingItem> { it.name.lowercase() }
+private val ITEM_COMPARATOR = compareBy<ShoppingItem> { it.fields.name.lowercase() }
 
 class ShoppingViewModel(
     private val repository: ShoppingRepository,
@@ -21,7 +22,7 @@ class ShoppingViewModel(
 
     val uiState: StateFlow<UiState> = repository.observeItems()
         .map { items ->
-            val (checked, unchecked) = items.partition { it.checked }
+            val (checked, unchecked) = items.partition { it.fields.checked }
             UiState(
                 uncheckedItems = unchecked.sortedWith(ITEM_COMPARATOR),
                 checkedItems = checked.sortedWith(ITEM_COMPARATOR),
@@ -34,7 +35,7 @@ class ShoppingViewModel(
         if (trimmed.isEmpty()) return
         val item = ShoppingItem(
             id = UUID.randomUUID().toString(),
-            name = trimmed,
+            fields = ItemFields(name = trimmed),
         )
         applyCommand(Command.AddItem(item))
     }
@@ -43,12 +44,8 @@ class ShoppingViewModel(
         applyCommand(Command.DeleteItem(item))
     }
 
-    fun editItem(previousSnapshot: ShoppingItem, newName: String, newQuantity: Double) {
-        val newSnapshot = previousSnapshot.copy(
-            name = newName.trim(),
-            quantity = newQuantity,
-        )
-        applyCommand(Command.EditItem(previousSnapshot, newSnapshot))
+    fun editItem(previousSnapshot: ShoppingItem, newFields: ItemFields) {
+        applyCommand(Command.EditItem(previousSnapshot, previousSnapshot.copy(fields = newFields)))
     }
 
     fun checkItem(item: ShoppingItem) {
