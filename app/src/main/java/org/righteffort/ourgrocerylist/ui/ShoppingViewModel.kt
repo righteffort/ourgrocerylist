@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -19,6 +20,9 @@ private val ITEM_COMPARATOR = compareBy<ShoppingItem> { it.fields.name.lowercase
 class ShoppingViewModel(
     private val repository: ShoppingRepository,
 ) : ViewModel() {
+
+    private val _dialogState = MutableStateFlow<ItemDialogState?>(null)
+    val dialogState: StateFlow<ItemDialogState?> = _dialogState.asStateFlow()
 
     val uiState: StateFlow<UiState> = repository.observeItems()
         .map { items ->
@@ -45,7 +49,7 @@ class ShoppingViewModel(
     }
 
     fun editItem(previousSnapshot: ShoppingItem, newFields: ItemFields) {
-        applyCommand(Command.EditItem(previousSnapshot, previousSnapshot.copy(fields = newFields)))
+        applyCommand(Command.EditItem(previousSnapshot, newFields))
     }
 
     fun checkItem(item: ShoppingItem) {
@@ -54,6 +58,45 @@ class ShoppingViewModel(
 
     fun uncheckItem(item: ShoppingItem) {
         applyCommand(Command.UncheckItem(item))
+    }
+
+    fun openEditDialog(item: ShoppingItem) {
+        _dialogState.value = ItemDialogState(
+            title = "Edit item",
+            initialFields = item.fields,
+            showDelete = true,
+            onSave = { newFields ->
+                editItem(item, newFields)
+                dismissDialog()
+            },
+            onDelete = {
+                deleteItem(item)
+                dismissDialog()
+            },
+            onCancel = { dismissDialog() },
+        )
+    }
+
+    fun openAddDialog(initialName: String) {
+        _dialogState.value = ItemDialogState(
+            title = "Add item",
+            initialFields = ItemFields(name = initialName),
+            showDelete = false,
+            onSave = { newFields ->
+                val item = ShoppingItem(
+                    id = UUID.randomUUID().toString(),
+                    fields = newFields.copy(name = newFields.name.trim()),
+                )
+                applyCommand(Command.AddItem(item))
+                dismissDialog()
+            },
+            onDelete = null,
+            onCancel = { dismissDialog() },
+        )
+    }
+
+    fun dismissDialog() {
+        _dialogState.value = null
     }
 
     private fun applyCommand(command: Command) {

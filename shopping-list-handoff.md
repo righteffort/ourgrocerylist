@@ -141,13 +141,18 @@ Import/export are for bootstrapping and backup. List sharing with collaborators 
 
 Every user mutation — add, delete, edit, check, uncheck — is reified as a `Command` object carrying enough data to execute and reverse itself. The undo stack is a list of Commands. Commands are serializable to JSON via `kotlinx.serialization` for DataStore persistence.
 
-**Command variants (sealed class):** `AddItem`, `DeleteItem`, `EditItem`, `CheckItem`, `UncheckItem`. Each carries the full snapshot data needed for reversal (e.g. `DeleteItem` carries the complete item so undo is a straightforward re-add).
+**Command variants (sealed class):** `AddItem`, `DeleteItem`, `EditItem`, `CheckItem`, `UncheckItem`. Each carries the full snapshot data needed for reversal (e.g. `DeleteItem` carries the complete item so undo is a straightforward re-add). `EditItem` carries `previousSnapshot: ShoppingItem` (for undo/version) and `newFields: ItemFields` (the user-editable state being applied).
 
 ---
 
 ### Layer 1 — Model
 
-Pure Kotlin data classes. `ShoppingItem(id, name, quantity, checked, version)`. The `version` field is a monotonic integer incremented by the Cloud Function on every successful write. Zero Android or Firestore dependencies. Trivially testable, no mocks needed.
+Pure Kotlin data classes with composition separating user-editable fields from system fields:
+
+- `ItemFields(name, quantity, checked)` — all user-editable state.
+- `ShoppingItem(id, fields: ItemFields, version)` — `id` is item identity, `version` is a monotonic integer incremented by the Cloud Function on every successful write. `version` is opaque below the Firestore repository layer.
+
+Zero Android or Firestore dependencies. Trivially testable, no mocks needed.
 
 ---
 
@@ -226,3 +231,5 @@ Each list item is its own Firestore document. This gives independent write paths
 - **Collection structure** uses subcollections: `lists/{listId}/items/{itemId}`.
 - **Stepper step size** is ±1.
 - **Mockups** are aspirational (show "WinCo" and share icon); v0 uses hardcoded "List" and no share icon.
+- **ItemFields composition** separates user-editable fields (name, quantity, checked) from system fields (id, version) in the model. `EditItem` command takes `newFields: ItemFields`, not individual field parameters.
+- **Edit dialog is mode-free** — the composable renders `ItemDialogState` with no add-vs-edit branching. The ViewModel constructs the appropriate state.

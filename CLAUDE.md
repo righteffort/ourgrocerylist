@@ -8,9 +8,9 @@ Native Android shopping list app. Kotlin, Jetpack Compose, MVVM. See `shopping-l
 
 ```
 app/src/main/java/org/righteffort/ourgrocerylist/
-├── model/           # Pure Kotlin data classes (ShoppingItem, Command)
+├── model/           # ShoppingItem (with ItemFields), Command sealed class
 ├── repository/      # ShoppingRepository interface + FakeShoppingRepository
-├── ui/              # ViewModel, UiState, Compose screens, theme
+├── ui/              # ViewModel, UiState, ItemDialogState, ItemDialog, screens, theme
 │   └── theme/
 └── OurGroceryListApp.kt  # Application class, manual DI
 ```
@@ -25,7 +25,7 @@ app/src/main/java/org/righteffort/ourgrocerylist/
 
 ## Current state
 
-Phase 1 skeleton. Add items, check/uncheck, sorted list with divider. No edit dialog, no undo/redo, no delete, no Firebase. Backed by in-memory FakeShoppingRepository.
+Phase 2. Add, edit, delete, check/uncheck items. Edit dialog with add-mode and edit-mode (mode-free composable, ViewModel constructs `ItemDialogState`). ViewModel unit tests in place. No undo/redo, no Firebase. Backed by in-memory FakeShoppingRepository.
 
 ## Conventions
 
@@ -38,6 +38,8 @@ Phase 1 skeleton. Add items, check/uncheck, sorted list with divider. No edit di
 
 ## Key design rules
 
+- `ShoppingItem` uses composition: `ItemFields` (user-editable: name, quantity, checked) vs system fields (id, version). `EditItem` command takes `newFields: ItemFields`, not individual field parameters.
+- The edit dialog composable has no concept of mode — it renders `ItemDialogState`. Add-vs-edit branching lives in the ViewModel's construction of `ItemDialogState`.
 - The Compose UI layer makes no decisions — it renders UiState and emits callbacks
 - The ViewModel has no Compose imports and no Firestore imports
 - The repository interface has no Firestore types

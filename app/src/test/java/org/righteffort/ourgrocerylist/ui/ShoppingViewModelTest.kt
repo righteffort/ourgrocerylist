@@ -10,9 +10,12 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.repository.FakeShoppingRepository
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -36,6 +39,8 @@ class ShoppingViewModelTest {
         collectScope.cancel()
         Dispatchers.resetMain()
     }
+
+    // --- addItem ---
 
     @Test
     fun `initial state has empty unchecked and checked lists`() {
@@ -75,6 +80,8 @@ class ShoppingViewModelTest {
         )
     }
 
+    // --- checkItem / uncheckItem ---
+
     @Test
     fun `checkItem moves item from unchecked to checked`() {
         viewModel.addItem("Bread")
@@ -101,12 +108,53 @@ class ShoppingViewModelTest {
         assertEquals(listOf("Milk", "Zucchini"), viewModel.uiState.value.checkedItems.map { it.fields.name })
     }
 
+    // --- deleteItem ---
+
     @Test
     fun `deleteItem removes item from the list`() {
         viewModel.addItem("Bread")
-        val item = viewModel.uiState.value.uncheckedItems.single()
-        viewModel.deleteItem(item)
+        viewModel.deleteItem(viewModel.uiState.value.uncheckedItems.single())
         assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+    }
+
+    @Test
+    fun `deleteItem on nonexistent item is a no-op`() {
+        viewModel.addItem("Bread")
+        viewModel.addItem("Milk")
+        val milk = viewModel.uiState.value.uncheckedItems.first { it.fields.name == "Milk" }
+        viewModel.deleteItem(milk)
+        viewModel.deleteItem(milk) // stale reference, already gone
+        assertEquals(listOf("Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+    }
+
+    // --- editItem ---
+
+    @Test
+    fun `editItem updates name and item re-sorts`() {
+        viewModel.addItem("Milk")
+        viewModel.addItem("Apples")
+        val milk = viewModel.uiState.value.uncheckedItems.first { it.fields.name == "Milk" }
+        viewModel.editItem(milk, milk.fields.copy(name = "Zucchini"))
+        assertEquals(listOf("Apples", "Zucchini"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+    }
+
+    @Test
+    fun `editItem updates quantity, item stays in same list position`() {
+        viewModel.addItem("Apples")
+        viewModel.addItem("Milk")
+        val milk = viewModel.uiState.value.uncheckedItems.first { it.fields.name == "Milk" }
+        viewModel.editItem(milk, milk.fields.copy(quantity = 3.0))
+        assertEquals(listOf("Apples", "Milk"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertEquals(3.0, viewModel.uiState.value.uncheckedItems.first { it.fields.name == "Milk" }.fields.quantity)
+    }
+
+    @Test
+    fun `editItem with blank name applies fields as given`() {
+        // The dialog disables Save when name is blank; the ViewModel does not guard this.
+        viewModel.addItem("Bread")
+        val item = viewModel.uiState.value.uncheckedItems.single()
+        viewModel.editItem(item, item.fields.copy(name = ""))
+        assertEquals("", viewModel.uiState.value.uncheckedItems.single().fields.name)
     }
 
     @Test
@@ -115,11 +163,66 @@ class ShoppingViewModelTest {
         assertEquals(1.0, viewModel.uiState.value.uncheckedItems.single().fields.quantity)
     }
 
+    // --- dialog state ---
+
     @Test
-    fun `editItem updates quantity on item in uiState`() {
+    fun `openEditDialog sets dialogState with correct title, fields, and showDelete`() {
         viewModel.addItem("Bread")
         val item = viewModel.uiState.value.uncheckedItems.single()
-        viewModel.editItem(item, item.fields.copy(quantity = 2.5))
-        assertEquals(2.5, viewModel.uiState.value.uncheckedItems.single().fields.quantity)
+        viewModel.openEditDialog(item)
+        val dialog = viewModel.dialogState.value!!
+        assertEquals("Edit item", dialog.title)
+        assertEquals(item.fields, dialog.initialFields)
+        assertTrue(dialog.showDelete)
+    }
+
+    @Test
+    fun `openAddDialog sets dialogState with correct title, fields, and showDelete`() {
+        viewModel.openAddDialog("Bread")
+        val dialog = viewModel.dialogState.value!!
+        assertEquals("Add item", dialog.title)
+        assertEquals(ItemFields(name = "Bread"), dialog.initialFields)
+        assertFalse(dialog.showDelete)
+    }
+
+    @Test
+    fun `dismissDialog sets dialogState to null`() {
+        viewModel.openAddDialog("Bread")
+        viewModel.dismissDialog()
+        assertNull(viewModel.dialogState.value)
+    }
+
+    @Test
+    fun `edit dialog onSave applies edit and dismisses`() {
+        viewModel.addItem("Bread")
+        val item = viewModel.uiState.value.uncheckedItems.single()
+        viewModel.openEditDialog(item)
+        viewModel.dialogState.value!!.onSave(item.fields.copy(name = "Milk"))
+        assertEquals(listOf("Milk"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertNull(viewModel.dialogState.value)
+    }
+
+    @Test
+    fun `add dialog onSave adds item and dismisses`() {
+        viewModel.openAddDialog("Bread")
+        viewModel.dialogState.value!!.onSave(ItemFields(name = "Bread"))
+        assertEquals(listOf("Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertNull(viewModel.dialogState.value)
+    }
+
+    @Test
+    fun `edit dialog onDelete deletes item and dismisses`() {
+        viewModel.addItem("Bread")
+        val item = viewModel.uiState.value.uncheckedItems.single()
+        viewModel.openEditDialog(item)
+        viewModel.dialogState.value!!.onDelete!!.invoke()
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+        assertNull(viewModel.dialogState.value)
+    }
+
+    @Test
+    fun `openAddDialog onDelete is null`() {
+        viewModel.openAddDialog("Bread")
+        assertNull(viewModel.dialogState.value!!.onDelete)
     }
 }

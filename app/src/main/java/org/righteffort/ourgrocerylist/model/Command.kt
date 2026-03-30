@@ -12,7 +12,7 @@ sealed class Command {
 
     data class EditItem(
         val previousSnapshot: ShoppingItem,
-	val newSnapshot: ShoppingItem,
+        val newFields: ItemFields,
     ) : Command()
 
     data class CheckItem(

@@ -17,7 +17,7 @@ class FakeShoppingRepository : ShoppingRepository {
             is Command.AddItem -> items.value + command.item
             is Command.DeleteItem -> items.value.filter { it.id != command.item.id }
             is Command.EditItem -> items.value.map {
-                if (it.id == command.newSnapshot.id) command.newSnapshot else it
+                if (it.id == command.previousSnapshot.id) it.copy(fields = command.newFields) else it
             }
             is Command.CheckItem -> items.value.map {
                 if (it.id == command.item.id) it.copy(fields = it.fields.copy(checked = true)) else it
