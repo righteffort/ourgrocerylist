@@ -5,10 +5,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ShoppingItem
+import java.util.UUID
 
 class FakeShoppingRepository : ShoppingRepository {
 
     private val items = MutableStateFlow<List<ShoppingItem>>(emptyList())
+
+    override fun newItemId(): String = UUID.randomUUID().toString()
 
     override fun observeItems(): Flow<List<ShoppingItem>> = items.asStateFlow()
 

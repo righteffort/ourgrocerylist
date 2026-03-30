@@ -2,7 +2,7 @@
 
 ## What this is
 
-Native Android shopping list app. Kotlin, Jetpack Compose, MVVM. See `shopping-list-handoff.md` for full design and architecture decisions.
+Native Android shopping list app. Kotlin, Jetpack Compose, MVVM. See `ourgrocerylist-handoff.md` for full design and architecture decisions.
 
 ## Project structure
 
@@ -36,17 +36,27 @@ Phase 3. Add, edit, delete, check/uncheck items. Edit dialog with add-mode and e
 - Accent color: `#8775B8`
 - ViewModel constructed via `viewModelFactory`/`initializer` DSL (no separate Factory class)
 
-## Key design rules
+## Key design and implementation rules
 
-- `ShoppingItem` uses composition: `ItemFields` (user-editable: name, quantity, checked) vs system fields (id). `EditItem` command takes `newFields: ItemFields`, not individual field parameters.
+- Never swallow errors. If nothing else, bubble to the top and surface a dialog to the user and log the problem.
+- Do not compromise strong typechecking (e.g. by using typescript syntax, overly permissive casts in any language)
+- `ShoppingItem` uses composition: `ItemFields` (user-editable: name, quantity, checked) + `id` (identity). No conflict metadata in the app model — `fingerprint`, `expectedFingerprint`, `previousFields`, `clientId` live only on the Firestore document. The repository maps them on write and strips them on read.
+- `EditItem` command takes `newFields: ItemFields`, not individual field parameters.
+- The implementation should avoid code that enumerates user-editable fields, in order to minimize the locations that need to change when future user-editable are added (e.g. units, category).
 - The edit dialog composable has no concept of mode — it renders `ItemDialogState`. Add-vs-edit branching lives in the ViewModel's construction of `ItemDialogState`.
 - The Compose UI layer makes no decisions — it renders UiState and emits callbacks
 - The ViewModel has no Compose imports and no Firestore imports
 - The repository interface has no Firestore types
 - Every mutation is a Command (sealed class) — this is the foundation for undo/redo
+- All mutations write directly to Firestore. Conflict detection is after-the-fact via `onUpdate` Cloud Function trigger, Ted will provide design when we get there.
 - Undo/redo stacks persisted via `kotlinx.serialization` (JSON) in Preferences DataStore — not Proto DataStore
-- On undo/redo conflict, discard all stack entries referencing the conflicted item (by ID), not just the failed entry
-- Conflict detection uses `ItemFields.fingerprint` — a stable hash of user-editable fields, replacing monotonic version numbers. The fingerprint is a computed property of `ItemFields`, so `Command.reverse()` naturally produces commands with the correct expected fingerprint. The client computes and sends both expected and new fingerprint with each mutation; the Cloud Function reads the stored fingerprint from the Firestore document and compares — no server-side hash computation. Cross-platform hash implementation (canonical JSON → SHA-256) deferred to Firestore phase.
+- On remote write to an item, truncate undo/redo stacks from the first entry referencing that item toward oldest (v0). Recent entries preserved. Field-level pruning deferred.
+
+## How to work together
+- Break large implementation tasks into human-reviewable chunks, to
+  enable course-correction. But not at the expense of excessive
+  stubbing or throwaway code.
+- For trivial questions (e.g. "what is the project id?") just ask.
 
 ## Repository Structure
 

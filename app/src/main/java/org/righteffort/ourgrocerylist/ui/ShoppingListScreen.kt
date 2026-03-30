@@ -20,11 +20,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +46,13 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
     val state by viewModel.uiState.collectAsState()
     val dialogState by viewModel.dialogState.collectAsState()
     var addFieldText by remember { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(viewModel) {
+        viewModel.errors.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
 
     dialogState?.let { ItemDialog(it) }
 
@@ -59,6 +69,7 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
         bottomBar = {
             BottomBar(state, onUndo = { viewModel.undo() }, onRedo = { viewModel.redo() })
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             AddItemField(

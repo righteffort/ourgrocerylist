@@ -10,6 +10,10 @@ composeBom = "2026.03.01"  # https://developer.android.com/develop/ui/compose/bo
 coroutines-test = "1.10.2"  # https://github.com/Kotlin/kotlinx.coroutines/releases
 activity = "1.13.0"  # https://developer.android.com/jetpack/androidx/releases/activity
 lifecycle = "2.10.0"  # https://developer.android.com/jetpack/androidx/releases/lifecycle
+google-services = "4.4.4"  # https://developers.google.com/android/guides/google-services-plugin
+firebase-bom = "34.11.0"  # https://firebase.google.com/support/release-notes/android
+datastore = "1.2.1"  # https://developer.android.com/jetpack/androidx/releases/datastore
+kotlinx-serialization = "1.10.0"  # https://github.com/Kotlin/kotlinx.serialization/releases
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -26,11 +30,19 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines-test" }
+firebase-bom = { group = "com.google.firebase", name="firebase-bom", version.ref = "firebase-bom" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutines-test" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+google-services = { id = "com.google.gms.google-services", version.ref = "google-services" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 
 [bundles]
 junit-jupiter = ["junit-jupiter-api", "junit-jupiter-engine"]

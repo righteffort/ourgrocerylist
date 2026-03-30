@@ -1,8 +1,6 @@
 # Android multi-user shopping list app — design & architecture handoff
 
-This document captures all design and architecture decisions made so far for, to be continued and finalized in a new conversation. I've attach a screenshot containing mockups for the list view and the edit dialog.
-
-Please put the rendered markdown of doc in the sidebar so we can revise it as needed.
+This document captures all design and architecture decisions made so far.
 
 ---
 
@@ -19,14 +17,18 @@ Please put the rendered markdown of doc in the sidebar so we can revise it as ne
 
 A native Android shopping list app in Kotlin. Multiple named lists, each containing named items with optional quantity. Users check items off as they shop. Designed for household use, with real-time multi-user collaboration via Firestore as the target state.
 
-There is no offline-only mode. The app always runs against Firestore — pointed at the Firebase local emulator during development and testing, and at the real cloud in production. The same code runs in both environments; the only difference is injected configuration. Fakes are used in unit tests only.
+There is no special case for offline operation. The app always runs
+against Firestore — pointed at the Firebase local emulator during
+development and testing, and at the real cloud in production, relying
+on the local cache provided by the Firestore SDK when offline. The
+same code runs in both environments; the only difference is injected
+configuration. Fakes are used in unit tests only.
 
 ---
 
 ## V0 scope
 
-- Single list, hardcoded name: **"List"** (not "WinCo").
-- No authentication, no cloud — Firebase local emulator (Firestore + Cloud Functions) only.
+- Single-user, multi-client.
 - The architecture must support adding multi-user and cloud collaboration later without structural rework.
 
 ---
@@ -93,11 +95,44 @@ The dialog composable itself has no concept of mode. The ViewModel constructs an
 
 Covers all mutations: add, delete, edit (name, quantity), check, uncheck.
 
-Undo and redo stacks are persisted across process death using `kotlinx.serialization` to JSON in Preferences DataStore. Undo is per-client and scoped to that client's own mutations.
+Undo and redo stacks are persisted across process death using
+`kotlinx.serialization` to JSON in Preferences DataStore. Undo is
+per-client and scoped to that client's own mutations.
 
-Undo and redo are not special from the server's point of view — they are just mutations like any other, routed through the Cloud Function with fingerprint checking. You can think of them as client-side conveniences for performing mutations that the end-user could perform manually.
+Undo and redo are not special from the server's point of view — they
+are just mutations like any other, written directly to Firestore
+carrying their own `baseFingerprint`. You can think of them as
+client-side conveniences for performing mutations that the end-user
+could perform manually.
 
-In the very unlikely event that a conflict occurs when applying an undo or redo, the user is notified (see conflict UX below) and all entries in both the undo and redo stacks referencing that item (by ID) are discarded. This avoids leaving the stack in a logically inconsistent state where later entries depend on the state of a conflicted item.
+**Undo/redo stack pruning on remote writes (v0):** When the client
+receives a remote write (a snapshot listener update from another
+client) that modifies an item, the stacks are pruned by truncation,
+not selective removal. For each stack (undo and redo independently):
+scan from newest entry toward oldest. The first entry referencing the
+modified item (by ID) and everything older than it are
+discarded. Entries newer than the conflicted entry are preserved.
+
+This maintains two properties: (1) the user's most recent actions
+remain undoable — pressing undo still does what they expect, and (2)
+the stack never has gaps where a missing entry's undo would have set
+up state that a later entry depends on. If the user undoes far enough
+to reach the truncation point, the stack is simply empty and undo
+grays out.
+
+This is conservative — it discards entries that might still be safe
+(e.g. a name undo is still valid if the remote write only changed
+`checked`) — but it is simple and predictable.
+
+**Deferred: field-level pruning.** A smarter approach would compare
+which fields each undo/redo entry touched against which fields the
+remote write changed, and only discard entries with overlapping
+fields. The data to support this is already present in the command
+snapshots. Note that field-level independence is a structural
+approximation — users may attach semantic relationships across fields
+(e.g. changing "six-pack of beer" to "case of beer" while another user
+changes quantity from 1 to 4). This is an inherent limitation of
+treating fields independently and is acceptable for this app.
 
 ---
 
@@ -105,7 +140,20 @@ In the very unlikely event that a conflict occurs when applying an undo or redo,
 
 The Firestore snapshot listener fires on every client whenever any client mutates any item document. Remote mutations animate the same way as local ones.
 
-**Conflict UX (two users edit the same item simultaneously):** Last write wins on the server. The Cloud Function writes a conflict notification document to the losing client's per-client notifications subcollection (see Firestore data model). The client's listener picks it up and surfaces a modal alert with a single dismiss button. Alert text: "Your changes to [item name] were discarded. [Description of what the other user did — e.g. 'Another user deleted it' or 'Another user changed it to: name, quantity, checked state']." The client deletes the notification document on dismiss. No merge UI, no recovery assistance.
+**Conflict UX (two users edit the same item simultaneously):** Last
+write wins on the server. An `onUpdate` Cloud Function trigger detects
+that the writing client's `baseFingerprint` doesn't match the previous
+document's `fingerprint`, indicating the writer was editing from stale
+state. The trigger writes a conflict notification to per-client
+notifications subcollection (see Firestore data model) for both the
+writer, and the writer of the overwritten data. The client's listener
+picks it up and surfaces a modal alert with a single dismiss
+button. Example alert text for the writer: "Your edit to [item name]
+was based on stale state. [Description of what was there before your
+write — e.g. 'Another user had changed it to: name, quantity, checked
+state']." The client deletes the notification document on dismiss. No
+merge UI, no recovery assistance. The writer's changes still stand —
+the notifications are informational only.
 
 This conflict case is expected to be extremely rare in practice.
 
@@ -149,8 +197,8 @@ Every user mutation — add, delete, edit, check, uncheck — is reified as a `C
 
 Pure Kotlin data classes with composition separating user-editable fields from system fields:
 
-- `ItemFields(name, quantity, checked)` — all user-editable state. Exposes a computed `fingerprint` property: a stable hash of all fields, used for conflict detection. Because the fingerprint is derived from the fields, `Command.reverse()` naturally produces commands with the correct expected fingerprint — no server-managed counter or external state needed.
-- `ShoppingItem(id, fields: ItemFields)` — `id` is item identity.
+- `ItemFields(name, quantity, checked)` — all user-editable state.
+- `ShoppingItem(id, fields: ItemFields)` — `id` is item identity. Conflict detection metadata (`fingerprint`, `baseFingerprint`, `baseFields`, `clientId`) lives only on the Firestore document, not in the app's data model. The repository maps them on write and strips them on read.
 
 Zero Android or Firestore dependencies. Trivially testable, no mocks needed.
 
@@ -164,7 +212,7 @@ Zero Android or Firestore dependencies. Trivially testable, no mocks needed.
 
 Firestore types appear only in the implementation, never in the interface. Tests use a fake in-memory implementation (`MutableStateFlow<List<ShoppingItem>>`). No Mockito, no emulator required in unit tests.
 
-**Conflict handling:** All mutations — add, delete, edit, check, uncheck, and their undo/redo counterparts — route through a Cloud Function rather than writing directly to Firestore from the client. The client sends two fingerprints with each mutation: the expected fingerprint (what the item's fingerprint should currently be) and the new fingerprint (what it will be after the mutation is applied). The Cloud Function runs within a Firestore transaction: it reads the stored `fingerprint` field from the document and compares it to the expected fingerprint sent by the client. On match, it applies the mutation and writes the new fingerprint. On mismatch, it rejects and sends a conflict notification. The Cloud Function never independently computes a fingerprint — it relies entirely on the client-supplied values. Undo and redo are not special — they are just mutations carrying expected and new fingerprints like any other. The repository interface abstracts this — callers simply call `apply(command)`.
+**Conflict handling:** All mutations write directly to Firestore. The Firestore SDK handles offline persistence, write ordering, retry, and optimistic local cache updates. An `onUpdate` Cloud Function trigger detects conflicts after the fact by comparing the incoming `baseFingerprint` against the previous document's `fingerprint`. On mismatch, the trigger writes a conflict notification to the writing client's notifications subcollection. See `conflict-detection-design.md` for full details. The repository interface abstracts this — callers simply call `apply(command)`.
 
 ---
 
@@ -216,20 +264,20 @@ Each list item is its own Firestore document. This gives independent write paths
 
 **Collection structure:** `lists/{listId}/items/{itemId}` — items are a subcollection under the list document. This supports multi-list and per-list security rules without migration when those features are added.
 
-**Item document fields:** `name` (string), `quantity` (number), `checked` (boolean), `fingerprint` (string). No server-managed version counter — conflict detection uses a fingerprint (stable hash) of the user-editable fields. The client computes the fingerprint and writes it to the document alongside the data fields. The Cloud Function reads the stored fingerprint directly — it does not independently recompute it.
+**Item document fields:** See `conflict-detection-design.md` for full document structure. Core fields: `fields` (map: name, quantity, checked), `fingerprint`, `baseFields`, `baseFingerprint`, `clientId`.
 
-**Conflict notifications:** `lists/{listId}/notifications/{clientId}/pending/{notificationId}` — per-client subcollection. Each document contains the conflict description (what the other user did, the item name involved). The client listens to its own subcollection, surfaces the alert, then deletes the document after the user dismisses it.
+**Conflict notifications:** `lists/{listId}/notifications/{clientId}/pending/{notificationId}` — per-client subcollection. Each document contains the human-readable conflict description. The client listens to its own subcollection, surfaces the alert, then deletes the document after the user dismisses it.
 
 ---
 
 ## Resolved from architecture review
 
-- **Fingerprint-based conflict detection** replaces monotonic version numbers. `ItemFields.fingerprint` is a computed stable hash of user-editable fields. `Command.reverse()` naturally produces commands with the correct expected fingerprint, since the fingerprint is derived from fields already carried in the command. Cross-platform hash implementation (canonical JSON → SHA-256) deferred to Firestore phase. The client computes and sends both the expected and new fingerprint with each mutation; the Cloud Function reads the stored fingerprint from the document and compares — no server-side hash computation.
-- **All mutations route through the Cloud Function**, including undo/redo. No separate write paths.
+- **Direct Firestore writes** with after-the-fact conflict detection via `onUpdate` trigger. No callable Cloud Functions. See `conflict-detection-design.md`.
+- **Version field removed** from `ShoppingItem`. Conflict detection uses client-computed fingerprints stored on the Firestore document, not in the app model.
 - **Edit dialog has two modes**: add (from pencil icon, issues `AddItem`) and edit (from row tap, issues `EditItem`).
 - **Conflict notifications** delivered via per-client Firestore subcollection, not FCM.
 - **Collection structure** uses subcollections: `lists/{listId}/items/{itemId}`.
 - **Stepper step size** is ±1.
 - **Mockups** are aspirational (show "WinCo" and share icon); v0 uses hardcoded "List" and no share icon.
-- **ItemFields composition** separates user-editable fields (name, quantity, checked) from system fields (id) in the model. `EditItem` command takes `newFields: ItemFields`, not individual field parameters.
+- **ItemFields composition** separates user-editable fields (name, quantity, checked) from system/identity fields (id) in the model. `EditItem` command takes `newFields: ItemFields`, not individual field parameters. Conflict metadata lives only on the Firestore document.
 - **Edit dialog is mode-free** — the composable renders `ItemDialogState` with no add-vs-edit branching. The ViewModel constructs the appropriate state.

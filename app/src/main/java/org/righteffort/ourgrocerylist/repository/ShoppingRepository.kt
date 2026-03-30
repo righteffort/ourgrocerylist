@@ -5,6 +5,7 @@ import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ShoppingItem
 
 interface ShoppingRepository {
+    fun newItemId(): String
     fun observeItems(): Flow<List<ShoppingItem>>
     suspend fun apply(command: Command)
 }

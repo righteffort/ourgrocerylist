@@ -15,3 +15,16 @@
 local.properties
 
 .idea
+.aider*
+
+google-services.json
+*.jks
+keystore.properties
+firestore-debug.log
+firebase/skills-lock.json
+.agents/
+.claude/
+firebase-debug.log
+
+# temporary
+firestore.rules

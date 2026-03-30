@@ -1,0 +1,63 @@
+OBSOLETE, DELETE
+
+Phase 4: firebase integration. This is a design task, not an
+implementation task. Produce a detailed design document suitable for
+driving implementation at docs/phase4-firestore-design.md for the
+following. Read CLAUDE.md ourgrocerylist-handoff.md for architectural
+overview.
+
+0. I suggest put all firebase config and code firebase/..., next to app/... but you may suggest otherwise.
+
+1. Firestore emulator setup
+
+Firebase project initialization (firebase init) — which services to enable (Firestore, Cloud Functions)
+Emulator configuration (firebase.json) for local Firestore and Cloud Functions
+Android app configuration to connect to the emulator (emulator host/port injection via build config or runtime flag)
+How the same code targets emulator vs cloud with only injected configuration changing
+
+2. FirestoreShoppingRepository
+
+Implementation of ShoppingRepository interface
+Document structure: lists/{listId}/items/{itemId} with fields mapping to/from ShoppingItem and ItemFields
+observeItems(): Firestore snapshot listener → Flow<List<ShoppingItem>> mapping
+apply(command): all mutations call the Cloud Function, not Firestore directly. Define the callable function name, request payload shape (command type, item data, expected fingerprint), and response shape.
+
+3. Cloud Function: mutation handler
+
+Single callable Cloud Function that handles all command types
+Transaction logic: read current document → compute stable fingerprint of current state → compare to expected fingerprint from client → on match: write and update fingerprint → on mismatch: reject and write conflict notification
+For AddItem: no fingerprint check needed (new document)
+For DeleteItem: fingerprint check, then delete
+For EditItem/CheckItem/UncheckItem: fingerprint check, then update
+Conflict notification document structure and write path (lists/{listId}/notifications/{clientId}/pending/{notificationId})
+
+4. Conflict notification listener
+
+Where it lives (repository layer? separate component?)
+How it surfaces notifications to the ViewModel (Flow or Channel of conflict events)
+Client deletes notification document after ViewModel consumes it
+
+5. Client ID
+
+How to generate and persist a stable client ID (survives app restarts but is per-device, not per-user since v0 has no auth)
+
+6. Connecting Android emulator and physical device to Firebase emulators on dev box
+
+adb reverse setup so the Android emulator on the dev box reaches Firebase emulators on localhost
+adb reverse over wifi for a physical phone on the same network
+Any Firebase SDK configuration needed to point at the forwarded ports
+
+7. Swapping FakeShoppingRepository for FirestoreShoppingRepository
+
+Changes to OurGroceryListApp.kt (still manual DI)
+Build variant or runtime flag to select fake vs Firestore
+What happens to existing tests (they continue using FakeShoppingRepository, unchanged)
+
+8. Open questions
+
+Flag anything in the current architecture (CLAUDE.md, ourgrocerylist-handoff.md) that conflicts with or is underspecified for this design.
+Flag any decisions you need from me before implementation.
+
+Do not write any implementation code. Produce only the design document.
+
+

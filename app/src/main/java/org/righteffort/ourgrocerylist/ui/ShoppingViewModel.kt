@@ -1,11 +1,16 @@
 package org.righteffort.ourgrocerylist.ui
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -14,9 +19,9 @@ import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.model.ShoppingItem
 import org.righteffort.ourgrocerylist.repository.ShoppingRepository
 import org.righteffort.ourgrocerylist.undo.UndoRedoManager
-import java.util.UUID
 
 private val ITEM_COMPARATOR = compareBy<ShoppingItem> { it.fields.name.lowercase() }
+private const val TAG = "ShoppingViewModel"
 
 class ShoppingViewModel(
     private val repository: ShoppingRepository,
@@ -26,8 +31,15 @@ class ShoppingViewModel(
     private val _dialogState = MutableStateFlow<ItemDialogState?>(null)
     val dialogState: StateFlow<ItemDialogState?> = _dialogState.asStateFlow()
 
+    private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val errors: SharedFlow<String> = _errors.asSharedFlow()
+
     val uiState: StateFlow<UiState> = combine(
-        repository.observeItems(),
+        repository.observeItems()
+            .catch { e ->
+                logAndEmitError("Failed to observe items", e)
+                emit(emptyList())
+            },
         undoRedoManager.state,
     ) { items, undoRedoState ->
         val (checked, unchecked) = items.partition { it.fields.checked }
@@ -43,7 +55,7 @@ class ShoppingViewModel(
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
         val item = ShoppingItem(
-            id = UUID.randomUUID().toString(),
+            id = repository.newItemId(),
             fields = ItemFields(name = trimmed),
         )
         applyCommand(Command.AddItem(item))
@@ -66,11 +78,23 @@ class ShoppingViewModel(
     }
 
     fun undo() {
-        viewModelScope.launch { undoRedoManager.undo() }
+        viewModelScope.launch {
+            try {
+                undoRedoManager.undo()
+            } catch (e: Exception) {
+                logAndEmitError("Undo failed", e)
+            }
+        }
     }
 
     fun redo() {
-        viewModelScope.launch { undoRedoManager.redo() }
+        viewModelScope.launch {
+            try {
+                undoRedoManager.redo()
+            } catch (e: Exception) {
+                logAndEmitError("Redo failed", e)
+            }
+        }
     }
 
     fun openEditDialog(item: ShoppingItem) {
@@ -97,7 +121,7 @@ class ShoppingViewModel(
             showDelete = false,
             onSave = { newFields ->
                 val item = ShoppingItem(
-                    id = UUID.randomUUID().toString(),
+                    id = repository.newItemId(),
                     fields = newFields.copy(name = newFields.name.trim()),
                 )
                 applyCommand(Command.AddItem(item))
@@ -114,7 +138,16 @@ class ShoppingViewModel(
 
     private fun applyCommand(command: Command) {
         viewModelScope.launch {
-            undoRedoManager.execute(command)
+            try {
+                undoRedoManager.execute(command)
+            } catch (e: Exception) {
+                logAndEmitError("Command failed: ${command::class.simpleName}", e)
+            }
         }
+    }
+
+    private fun logAndEmitError(message: String, e: Throwable) {
+        Log.e(TAG, message, e)
+        _errors.tryEmit(e.message ?: message)
     }
 }
