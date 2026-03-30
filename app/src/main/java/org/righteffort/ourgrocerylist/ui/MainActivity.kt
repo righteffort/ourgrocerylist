@@ -13,7 +13,10 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: ShoppingViewModel by viewModels {
         viewModelFactory {
-            initializer { ShoppingViewModel((application as OurGroceryListApp).repository) }
+            initializer {
+                val app = application as OurGroceryListApp
+                ShoppingViewModel(app.repository, app.undoRedoManager)
+            }
         } 
     }
 

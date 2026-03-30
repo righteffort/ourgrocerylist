@@ -19,13 +19,13 @@ app/src/main/java/org/righteffort/ourgrocerylist/
 
 1. **Model** — pure data classes, zero Android dependencies
 2. **Repository** — interface + implementations. Fake for now, Firestore later.
-3. **UndoRedoManager** — not yet implemented
+3. **UndoRedoManager** — in-memory undo/redo stacks; DataStore persistence deferred
 4. **ViewModel** — translates intents to Commands, sorts/splits items into UiState
 5. **Compose UI** — pure function of UiState, emits callbacks upward
 
 ## Current state
 
-Phase 2. Add, edit, delete, check/uncheck items. Edit dialog with add-mode and edit-mode (mode-free composable, ViewModel constructs `ItemDialogState`). ViewModel unit tests in place. No undo/redo, no Firebase. Backed by in-memory FakeShoppingRepository.
+Phase 3. Add, edit, delete, check/uncheck items. Edit dialog with add-mode and edit-mode (mode-free composable, ViewModel constructs `ItemDialogState`). Undo/redo via `UndoRedoManager` (in-memory stacks, Command pattern with `reverse()`). ViewModel and UndoRedoManager unit tests in place. No Firebase. Backed by in-memory FakeShoppingRepository.
 
 ## Conventions
 
@@ -38,7 +38,7 @@ Phase 2. Add, edit, delete, check/uncheck items. Edit dialog with add-mode and e
 
 ## Key design rules
 
-- `ShoppingItem` uses composition: `ItemFields` (user-editable: name, quantity, checked) vs system fields (id, version). `EditItem` command takes `newFields: ItemFields`, not individual field parameters.
+- `ShoppingItem` uses composition: `ItemFields` (user-editable: name, quantity, checked) vs system fields (id). `EditItem` command takes `newFields: ItemFields`, not individual field parameters.
 - The edit dialog composable has no concept of mode — it renders `ItemDialogState`. Add-vs-edit branching lives in the ViewModel's construction of `ItemDialogState`.
 - The Compose UI layer makes no decisions — it renders UiState and emits callbacks
 - The ViewModel has no Compose imports and no Firestore imports
@@ -46,7 +46,7 @@ Phase 2. Add, edit, delete, check/uncheck items. Edit dialog with add-mode and e
 - Every mutation is a Command (sealed class) — this is the foundation for undo/redo
 - Undo/redo stacks persisted via `kotlinx.serialization` (JSON) in Preferences DataStore — not Proto DataStore
 - On undo/redo conflict, discard all stack entries referencing the conflicted item (by ID), not just the failed entry
-- ShoppingItem.version is opaque below the Firestore repository layer — other code carries it but never reads or increments it
+- Conflict detection uses `ItemFields.fingerprint` — a stable hash of user-editable fields, replacing monotonic version numbers. The fingerprint is a computed property of `ItemFields`, so `Command.reverse()` naturally produces commands with the correct expected fingerprint. The client computes and sends both expected and new fingerprint with each mutation; the Cloud Function reads the stored fingerprint from the Firestore document and compares — no server-side hash computation. Cross-platform hash implementation (canonical JSON → SHA-256) deferred to Firestore phase.
 
 ## Repository Structure
 

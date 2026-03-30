@@ -57,7 +57,7 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
             )
         },
         bottomBar = {
-            BottomBar(state)
+            BottomBar(state, onUndo = { viewModel.undo() }, onRedo = { viewModel.redo() })
         },
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
@@ -191,20 +191,20 @@ private fun ItemRow(
 }
 
 @Composable
-private fun BottomBar(state: UiState) {
+private fun BottomBar(state: UiState, onUndo: () -> Unit, onRedo: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         TextButton(
-            onClick = { /* undo — phase 3 */ },
+            onClick = onUndo,
             enabled = state.undoAvailable,
         ) {
             Text("↩ Undo")
         }
         TextButton(
-            onClick = { /* redo — phase 3 */ },
+            onClick = onRedo,
             enabled = state.redoAvailable,
         ) {
             Text("↪ Redo")

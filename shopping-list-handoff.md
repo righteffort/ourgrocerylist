@@ -95,7 +95,7 @@ Covers all mutations: add, delete, edit (name, quantity), check, uncheck.
 
 Undo and redo stacks are persisted across process death using `kotlinx.serialization` to JSON in Preferences DataStore. Undo is per-client and scoped to that client's own mutations.
 
-Undo and redo are not special from the server's point of view — they are just mutations like any other, routed through the Cloud Function with version checking. You can think of them as client-side conveniences for performing mutations that the end-user could perform manually.
+Undo and redo are not special from the server's point of view — they are just mutations like any other, routed through the Cloud Function with fingerprint checking. You can think of them as client-side conveniences for performing mutations that the end-user could perform manually.
 
 In the very unlikely event that a conflict occurs when applying an undo or redo, the user is notified (see conflict UX below) and all entries in both the undo and redo stacks referencing that item (by ID) are discarded. This avoids leaving the stack in a logically inconsistent state where later entries depend on the state of a conflicted item.
 
@@ -149,8 +149,8 @@ Every user mutation — add, delete, edit, check, uncheck — is reified as a `C
 
 Pure Kotlin data classes with composition separating user-editable fields from system fields:
 
-- `ItemFields(name, quantity, checked)` — all user-editable state.
-- `ShoppingItem(id, fields: ItemFields, version)` — `id` is item identity, `version` is a monotonic integer incremented by the Cloud Function on every successful write. `version` is opaque below the Firestore repository layer.
+- `ItemFields(name, quantity, checked)` — all user-editable state. Exposes a computed `fingerprint` property: a stable hash of all fields, used for conflict detection. Because the fingerprint is derived from the fields, `Command.reverse()` naturally produces commands with the correct expected fingerprint — no server-managed counter or external state needed.
+- `ShoppingItem(id, fields: ItemFields)` — `id` is item identity.
 
 Zero Android or Firestore dependencies. Trivially testable, no mocks needed.
 
@@ -164,7 +164,7 @@ Zero Android or Firestore dependencies. Trivially testable, no mocks needed.
 
 Firestore types appear only in the implementation, never in the interface. Tests use a fake in-memory implementation (`MutableStateFlow<List<ShoppingItem>>`). No Mockito, no emulator required in unit tests.
 
-**Conflict handling:** All mutations — add, delete, edit, check, uncheck, and their undo/redo counterparts — route through a Cloud Function rather than writing directly to Firestore from the client. The Cloud Function runs within a Firestore transaction: it reads the current document version, compares it to the expected version sent by the client, writes and increments the version on match, or rejects and sends a conflict notification on mismatch. Undo and redo are not special — they are just mutations carrying the expected version like any other. The repository interface abstracts this — callers simply call `apply(command)`.
+**Conflict handling:** All mutations — add, delete, edit, check, uncheck, and their undo/redo counterparts — route through a Cloud Function rather than writing directly to Firestore from the client. The client sends two fingerprints with each mutation: the expected fingerprint (what the item's fingerprint should currently be) and the new fingerprint (what it will be after the mutation is applied). The Cloud Function runs within a Firestore transaction: it reads the stored `fingerprint` field from the document and compares it to the expected fingerprint sent by the client. On match, it applies the mutation and writes the new fingerprint. On mismatch, it rejects and sends a conflict notification. The Cloud Function never independently computes a fingerprint — it relies entirely on the client-supplied values. Undo and redo are not special — they are just mutations carrying expected and new fingerprints like any other. The repository interface abstracts this — callers simply call `apply(command)`.
 
 ---
 
@@ -216,7 +216,7 @@ Each list item is its own Firestore document. This gives independent write paths
 
 **Collection structure:** `lists/{listId}/items/{itemId}` — items are a subcollection under the list document. This supports multi-list and per-list security rules without migration when those features are added.
 
-**Item document fields:** `name` (string), `quantity` (number), `checked` (boolean), `version` (integer, incremented by the Cloud Function on every successful write).
+**Item document fields:** `name` (string), `quantity` (number), `checked` (boolean), `fingerprint` (string). No server-managed version counter — conflict detection uses a fingerprint (stable hash) of the user-editable fields. The client computes the fingerprint and writes it to the document alongside the data fields. The Cloud Function reads the stored fingerprint directly — it does not independently recompute it.
 
 **Conflict notifications:** `lists/{listId}/notifications/{clientId}/pending/{notificationId}` — per-client subcollection. Each document contains the conflict description (what the other user did, the item name involved). The client listens to its own subcollection, surfaces the alert, then deletes the document after the user dismisses it.
 
@@ -224,12 +224,12 @@ Each list item is its own Firestore document. This gives independent write paths
 
 ## Resolved from architecture review
 
-- **Version field** added to `ShoppingItem` — monotonic integer, incremented server-side in a Firestore transaction by the Cloud Function.
+- **Fingerprint-based conflict detection** replaces monotonic version numbers. `ItemFields.fingerprint` is a computed stable hash of user-editable fields. `Command.reverse()` naturally produces commands with the correct expected fingerprint, since the fingerprint is derived from fields already carried in the command. Cross-platform hash implementation (canonical JSON → SHA-256) deferred to Firestore phase. The client computes and sends both the expected and new fingerprint with each mutation; the Cloud Function reads the stored fingerprint from the document and compares — no server-side hash computation.
 - **All mutations route through the Cloud Function**, including undo/redo. No separate write paths.
 - **Edit dialog has two modes**: add (from pencil icon, issues `AddItem`) and edit (from row tap, issues `EditItem`).
 - **Conflict notifications** delivered via per-client Firestore subcollection, not FCM.
 - **Collection structure** uses subcollections: `lists/{listId}/items/{itemId}`.
 - **Stepper step size** is ±1.
 - **Mockups** are aspirational (show "WinCo" and share icon); v0 uses hardcoded "List" and no share icon.
-- **ItemFields composition** separates user-editable fields (name, quantity, checked) from system fields (id, version) in the model. `EditItem` command takes `newFields: ItemFields`, not individual field parameters.
+- **ItemFields composition** separates user-editable fields (name, quantity, checked) from system fields (id) in the model. `EditItem` command takes `newFields: ItemFields`, not individual field parameters.
 - **Edit dialog is mode-free** — the composable renders `ItemDialogState` with no add-vs-edit branching. The ViewModel constructs the appropriate state.

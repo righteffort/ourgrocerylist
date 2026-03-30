@@ -1,0 +1,174 @@
+package org.righteffort.ourgrocerylist.undo
+
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.righteffort.ourgrocerylist.model.Command
+import org.righteffort.ourgrocerylist.model.ItemFields
+import org.righteffort.ourgrocerylist.model.ShoppingItem
+import org.righteffort.ourgrocerylist.repository.FakeShoppingRepository
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class UndoRedoManagerTest {
+
+    private lateinit var repository: FakeShoppingRepository
+    private lateinit var manager: UndoRedoManager
+
+    @BeforeEach
+    fun setUp() {
+        repository = FakeShoppingRepository()
+        manager = UndoRedoManager(repository)
+    }
+
+    // Helpers
+
+    private suspend fun currentItems() = repository.observeItems().first()
+    private suspend fun currentNames() = currentItems().map { it.fields.name }
+    private suspend fun currentChecked(name: String) =
+        currentItems().first { it.fields.name == name }.fields.checked
+
+    private fun item(name: String) = ShoppingItem(id = name, fields = ItemFields(name = name))
+
+    // --- execute / undo / redo ---
+
+    @Test
+    fun `execute adds item, undo removes it, redo re-adds it`() = runTest(UnconfinedTestDispatcher()) {
+        manager.execute(Command.AddItem(item("Bread")))
+        assertEquals(listOf("Bread"), currentNames())
+
+        manager.undo()
+        assertTrue(currentNames().isEmpty())
+
+        manager.redo()
+        assertEquals(listOf("Bread"), currentNames())
+    }
+
+    @Test
+    fun `undo and redo of DeleteItem`() = runTest(UnconfinedTestDispatcher()) {
+        val bread = item("Bread")
+        manager.execute(Command.AddItem(bread))
+        manager.execute(Command.DeleteItem(bread))
+        assertTrue(currentNames().isEmpty())
+
+        manager.undo()
+        assertEquals(listOf("Bread"), currentNames())
+
+        manager.redo()
+        assertTrue(currentNames().isEmpty())
+    }
+
+    @Test
+    fun `undo and redo of EditItem`() = runTest(UnconfinedTestDispatcher()) {
+        val bread = item("Bread")
+        manager.execute(Command.AddItem(bread))
+        manager.execute(Command.EditItem(bread, ItemFields(name = "Milk")))
+        assertEquals(listOf("Milk"), currentNames())
+
+        manager.undo()
+        assertEquals(listOf("Bread"), currentNames())
+
+        manager.redo()
+        assertEquals(listOf("Milk"), currentNames())
+    }
+
+    @Test
+    fun `undo and redo of CheckItem`() = runTest(UnconfinedTestDispatcher()) {
+        manager.execute(Command.AddItem(item("Bread")))
+        val bread = currentItems().single()
+        manager.execute(Command.CheckItem(bread))
+        assertTrue(currentChecked("Bread"))
+
+        manager.undo()
+        assertFalse(currentChecked("Bread"))
+
+        manager.redo()
+        assertTrue(currentChecked("Bread"))
+    }
+
+    @Test
+    fun `undo and redo of UncheckItem`() = runTest(UnconfinedTestDispatcher()) {
+        manager.execute(Command.AddItem(item("Bread")))
+        val bread = currentItems().single()
+        manager.execute(Command.CheckItem(bread))
+        val checkedBread = currentItems().single()
+        manager.execute(Command.UncheckItem(checkedBread))
+        assertFalse(currentChecked("Bread"))
+
+        manager.undo()
+        assertTrue(currentChecked("Bread"))
+
+        manager.redo()
+        assertFalse(currentChecked("Bread"))
+    }
+
+    @Test
+    fun `execute after undo clears redo stack`() = runTest(UnconfinedTestDispatcher()) {
+        manager.execute(Command.AddItem(item("Bread")))
+        manager.undo()
+        assertTrue(manager.state.value.redoAvailable)
+
+        manager.execute(Command.AddItem(item("Milk")))
+        assertFalse(manager.state.value.redoAvailable)
+
+        // Redo should be a no-op — Bread must not re-appear
+        manager.redo()
+        assertEquals(listOf("Milk"), currentNames())
+    }
+
+    @Test
+    fun `undo on empty stack is no-op`() = runTest(UnconfinedTestDispatcher()) {
+        manager.undo()
+        assertFalse(manager.state.value.undoAvailable)
+        assertFalse(manager.state.value.redoAvailable)
+        assertTrue(currentNames().isEmpty())
+    }
+
+    @Test
+    fun `redo on empty stack is no-op`() = runTest(UnconfinedTestDispatcher()) {
+        manager.redo()
+        assertFalse(manager.state.value.undoAvailable)
+        assertFalse(manager.state.value.redoAvailable)
+        assertTrue(currentNames().isEmpty())
+    }
+
+    @Test
+    fun `undoAvailable and redoAvailable reflect stack state`() = runTest(UnconfinedTestDispatcher()) {
+        assertFalse(manager.state.value.undoAvailable)
+        assertFalse(manager.state.value.redoAvailable)
+
+        manager.execute(Command.AddItem(item("Bread")))
+        assertTrue(manager.state.value.undoAvailable)
+        assertFalse(manager.state.value.redoAvailable)
+
+        manager.undo()
+        assertFalse(manager.state.value.undoAvailable)
+        assertTrue(manager.state.value.redoAvailable)
+
+        manager.redo()
+        assertTrue(manager.state.value.undoAvailable)
+        assertFalse(manager.state.value.redoAvailable)
+    }
+
+    @Test
+    fun `multiple sequential undos unwind in reverse order`() = runTest(UnconfinedTestDispatcher()) {
+        manager.execute(Command.AddItem(item("Apples")))
+        manager.execute(Command.AddItem(item("Bread")))
+        manager.execute(Command.AddItem(item("Milk")))
+        assertEquals(setOf("Apples", "Bread", "Milk"), currentNames().toSet())
+
+        manager.undo()
+        assertEquals(setOf("Apples", "Bread"), currentNames().toSet())
+
+        manager.undo()
+        assertEquals(setOf("Apples"), currentNames().toSet())
+
+        manager.undo()
+        assertTrue(currentNames().isEmpty())
+    }
+}

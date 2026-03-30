@@ -6,33 +6,38 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.model.ShoppingItem
 import org.righteffort.ourgrocerylist.repository.ShoppingRepository
+import org.righteffort.ourgrocerylist.undo.UndoRedoManager
 import java.util.UUID
 
 private val ITEM_COMPARATOR = compareBy<ShoppingItem> { it.fields.name.lowercase() }
 
 class ShoppingViewModel(
     private val repository: ShoppingRepository,
+    private val undoRedoManager: UndoRedoManager,
 ) : ViewModel() {
 
     private val _dialogState = MutableStateFlow<ItemDialogState?>(null)
     val dialogState: StateFlow<ItemDialogState?> = _dialogState.asStateFlow()
 
-    val uiState: StateFlow<UiState> = repository.observeItems()
-        .map { items ->
-            val (checked, unchecked) = items.partition { it.fields.checked }
-            UiState(
-                uncheckedItems = unchecked.sortedWith(ITEM_COMPARATOR),
-                checkedItems = checked.sortedWith(ITEM_COMPARATOR),
-            )
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState())
+    val uiState: StateFlow<UiState> = combine(
+        repository.observeItems(),
+        undoRedoManager.state,
+    ) { items, undoRedoState ->
+        val (checked, unchecked) = items.partition { it.fields.checked }
+        UiState(
+            uncheckedItems = unchecked.sortedWith(ITEM_COMPARATOR),
+            checkedItems = checked.sortedWith(ITEM_COMPARATOR),
+            undoAvailable = undoRedoState.undoAvailable,
+            redoAvailable = undoRedoState.redoAvailable,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState())
 
     fun addItem(name: String) {
         val trimmed = name.trim()
@@ -58,6 +63,14 @@ class ShoppingViewModel(
 
     fun uncheckItem(item: ShoppingItem) {
         applyCommand(Command.UncheckItem(item))
+    }
+
+    fun undo() {
+        viewModelScope.launch { undoRedoManager.undo() }
+    }
+
+    fun redo() {
+        viewModelScope.launch { undoRedoManager.redo() }
     }
 
     fun openEditDialog(item: ShoppingItem) {
@@ -101,7 +114,7 @@ class ShoppingViewModel(
 
     private fun applyCommand(command: Command) {
         viewModelScope.launch {
-            repository.apply(command)
+            undoRedoManager.execute(command)
         }
     }
 }

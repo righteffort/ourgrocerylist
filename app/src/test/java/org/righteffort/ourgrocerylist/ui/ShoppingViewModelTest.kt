@@ -17,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.repository.FakeShoppingRepository
+import org.righteffort.ourgrocerylist.undo.UndoRedoManager
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ShoppingViewModelTest {
@@ -28,7 +29,8 @@ class ShoppingViewModelTest {
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = ShoppingViewModel(FakeShoppingRepository())
+        val repository = FakeShoppingRepository()
+        viewModel = ShoppingViewModel(repository, UndoRedoManager(repository))
         // Hold an active subscriber so WhileSubscribed keeps the upstream flow alive.
         collectScope = CoroutineScope(testDispatcher)
         collectScope.launch { viewModel.uiState.collect {} }
@@ -224,5 +226,32 @@ class ShoppingViewModelTest {
     fun `openAddDialog onDelete is null`() {
         viewModel.openAddDialog("Bread")
         assertNull(viewModel.dialogState.value!!.onDelete)
+    }
+
+    // --- undo/redo ---
+
+    @Test
+    fun `undoAvailable is false initially, true after addItem`() {
+        assertFalse(viewModel.uiState.value.undoAvailable)
+        viewModel.addItem("Bread")
+        assertTrue(viewModel.uiState.value.undoAvailable)
+    }
+
+    @Test
+    fun `undo after addItem removes the item and sets redoAvailable true`() {
+        viewModel.addItem("Bread")
+        viewModel.undo()
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+        assertFalse(viewModel.uiState.value.undoAvailable)
+        assertTrue(viewModel.uiState.value.redoAvailable)
+    }
+
+    @Test
+    fun `redo after undo re-adds the item`() {
+        viewModel.addItem("Bread")
+        viewModel.undo()
+        viewModel.redo()
+        assertEquals(listOf("Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertFalse(viewModel.uiState.value.redoAvailable)
     }
 }
