@@ -6,7 +6,11 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.runBlocking
 import org.righteffort.ourgrocerylist.client.ClientIdRepository
 import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
@@ -17,12 +21,18 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 class OurGroceryListApp : Application() {
 
+    // replay=1 so the ViewModel sees this error even if it subscribes after emission.
+    // internal so MainActivity can emit errors from the auth/init coroutine it owns.
+    internal val _initErrors = MutableSharedFlow<String>(replay = 1)
+    val initErrors: SharedFlow<String> = _initErrors.asSharedFlow()
+
     override fun onCreate() {
         super.onCreate()
-        @Suppress("KotlinConstantConditions")
         if (BuildConfig.USE_FIREBASE_EMULATOR) {
-            // Requires `adb reverse tcp:8080 tcp:8080`.
-            Firebase.firestore.useEmulator("127.0.0.1", 8080)  // localhost may not resolve.
+            // Requires `for p in 8080 9099 5001 ; do adb reverse tcp:$p tcp:$p ; done`
+            // Use 127.0.0.1 — some devices fail to DNS-resolve "localhost".
+            Firebase.auth.useEmulator("127.0.0.1", 9099)
+            Firebase.firestore.useEmulator("127.0.0.1", 8080)
         }
     }
 

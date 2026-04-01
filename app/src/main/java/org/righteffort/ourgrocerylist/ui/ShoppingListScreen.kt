@@ -2,6 +2,7 @@ package org.righteffort.ourgrocerylist.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,6 +44,12 @@ import org.righteffort.ourgrocerylist.model.ShoppingItem
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShoppingListScreen(viewModel: ShoppingViewModel) {
+    val fatalError by viewModel.fatalError.collectAsState()
+    if (fatalError != null) {
+        FatalErrorScreen(fatalError!!)
+        return
+    }
+
     val state by viewModel.uiState.collectAsState()
     val dialogState by viewModel.dialogState.collectAsState()
     var addFieldText by remember { mutableStateOf("") }
@@ -219,6 +226,32 @@ private fun BottomBar(state: UiState, onUndo: () -> Unit, onRedo: () -> Unit) {
             enabled = state.redoAvailable,
         ) {
             Text("↪ Redo")
+        }
+    }
+}
+
+@Composable
+private fun FatalErrorScreen(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.errorContainer),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier.padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "Something went wrong",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            Text(
+                text = message,
+                modifier = Modifier.padding(top = 16.dp),
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
         }
     }
 }

@@ -38,7 +38,7 @@ Phase 3. Add, edit, delete, check/uncheck items. Edit dialog with add-mode and e
 
 ## Key design and implementation rules
 
-- Never swallow errors. If nothing else, bubble to the top and surface a dialog to the user and log the problem.
+- Never swallow errors. Logging and continuing is also unacceptable. If nothing else, bubble the exception to the top level of the app, and surface a dialog to the user and log the problem.
 - Do not compromise strong typechecking (e.g. by using typescript syntax, overly permissive casts in any language)
 - `ShoppingItem` uses composition: `ItemFields` (user-editable: name, quantity, checked) + `id` (identity). No conflict metadata in the app model — `fingerprint`, `expectedFingerprint`, `previousFields`, `clientId` live only on the Firestore document. The repository maps them on write and strips them on read.
 - `EditItem` command takes `newFields: ItemFields`, not individual field parameters.

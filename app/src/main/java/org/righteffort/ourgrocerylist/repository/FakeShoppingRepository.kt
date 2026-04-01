@@ -18,6 +18,8 @@ class FakeShoppingRepository : ShoppingRepository {
 
     override fun observeRemotelyModifiedItemIds(): Flow<Set<String>> = emptyFlow()
 
+    override suspend fun ensureListDocument(uid: String) = Unit
+
     override suspend fun apply(command: Command) {
         items.value = when (command) {
             is Command.AddItem -> items.value + command.item

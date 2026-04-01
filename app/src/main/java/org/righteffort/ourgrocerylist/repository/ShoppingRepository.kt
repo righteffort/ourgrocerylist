@@ -9,4 +9,5 @@ interface ShoppingRepository {
     fun observeItems(): Flow<List<ShoppingItem>>
     fun observeRemotelyModifiedItemIds(): Flow<Set<String>>
     suspend fun apply(command: Command)
+    suspend fun ensureListDocument(uid: String)
 }

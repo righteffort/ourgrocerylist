@@ -8,8 +8,9 @@ These aspects have not yet been fully designed and implemented and are deferred 
     lists collection: owner (the firestore provided user id for the
     creator of the list) and editors (the user ids that the owner has
     shared the list with)
-  - authorization will be via firestore security rules
-  - email and or in-app notifications with invites to newly shared lists
+  - DONE authorization will be via firestore security rules
+  - email and or in-app notifications with invites to newly shared lists.
+    - search for invitee in https://gemini.google.com/app/8aac15be2e66cec4 for some help
 - once we have authentication (including association of clientIds with
   user ids) we conflict notifications can include the display name of
   the other party: "Ted overwrote your change", "You overwrote
@@ -17,6 +18,16 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - display fine-tuning, e.g. more compact view; light/dark/auto
 - small/large fonts (is there a system setting that is conventional to
   follow instead of doing our own thing?)
+- many things from ourshoppinglist-handoff.md
+- autocomplete in add
+  - basic (system-provided)
+  - assist user to find exist checked items
+  - maybe domain-aware
+- cleaner handling when user declines to login via Google or login fails
+- logout
+- account deletion
+- export all my lists as zip
+- unit tests for firestore security rules
 
 These are hygiene issues that may have been missed
 - review for swallowed errors
@@ -37,6 +48,7 @@ These aspects might never be implemented
   when configuring the app to connect to the emulator.
 - internationalization
 - accessibility beyond what we get for free
+- clean up orphaned or abandoned state in Firestore
 These aspects will almost certainly never be implemented.
 - Vestiges of obsolete design
   - Proxying mutations through a cloud function, along with a request queue. 

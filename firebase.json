@@ -35,5 +35,13 @@
       "port": 4000
     },
     "singleProjectMode": true
+  },
+  "auth": {
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Our Grocery List",
+        "supportEmail": "tromer@gmail.com"
+      }
+    }
   }
 }

@@ -3,6 +3,7 @@ package org.righteffort.ourgrocerylist.ui
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.righteffort.ourgrocerylist.model.Command
@@ -26,6 +28,7 @@ private const val TAG = "ShoppingViewModel"
 class ShoppingViewModel(
     private val repository: ShoppingRepository,
     private val undoRedoManager: UndoRedoManager,
+    appErrors: Flow<String> = emptyFlow(),
 ) : ViewModel() {
 
     private val _dialogState = MutableStateFlow<ItemDialogState?>(null)
@@ -34,10 +37,19 @@ class ShoppingViewModel(
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val errors: SharedFlow<String> = _errors.asSharedFlow()
 
+    private val _fatalError = MutableStateFlow<String?>(null)
+    val fatalError: StateFlow<String?> = _fatalError.asStateFlow()
+
     init {
         viewModelScope.launch {
+            appErrors.collect { message ->
+                Log.e(TAG, "Fatal app init error: $message")
+                _fatalError.value = message
+            }
+        }
+        viewModelScope.launch {
             repository.observeRemotelyModifiedItemIds()
-                .catch { e -> logAndEmitError("Failed to observe remote changes", e) }
+                .catch { e -> logAndEmitFatalError("Failed to observe remote changes", e) }
                 .collect { itemIds -> itemIds.forEach { undoRedoManager.pruneForRemoteWrite(it) } }
         }
     }
@@ -45,7 +57,7 @@ class ShoppingViewModel(
     val uiState: StateFlow<UiState> = combine(
         repository.observeItems()
             .catch { e ->
-                logAndEmitError("Failed to observe items", e)
+                logAndEmitFatalError("Failed to observe items", e)
                 emit(emptyList())
             },
         undoRedoManager.state,
@@ -157,5 +169,10 @@ class ShoppingViewModel(
     private fun logAndEmitError(message: String, e: Throwable) {
         Log.e(TAG, message, e)
         _errors.tryEmit(e.message ?: message)
+    }
+
+    private fun logAndEmitFatalError(message: String, e: Throwable) {
+        Log.e(TAG, message, e)
+        _fatalError.value = e.message ?: message
     }
 }
