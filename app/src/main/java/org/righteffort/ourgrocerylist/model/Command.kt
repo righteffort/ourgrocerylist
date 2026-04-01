@@ -4,6 +4,16 @@ sealed class Command {
 
     abstract fun reverse(): Command
 
+    // Returns true if this command references the given item ID —
+    // used by UndoRedoManager to prune stacks on remote writes.
+    fun referencesItem(itemId: String): Boolean = when (this) {
+        is AddItem -> item.id == itemId
+        is DeleteItem -> item.id == itemId
+        is EditItem -> previousSnapshot.id == itemId
+        is CheckItem -> item.id == itemId
+        is UncheckItem -> item.id == itemId
+    }
+
     data class AddItem(
         val item: ShoppingItem,
     ) : Command() {

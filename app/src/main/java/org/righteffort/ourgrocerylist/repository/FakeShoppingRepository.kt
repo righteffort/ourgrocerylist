@@ -3,6 +3,7 @@ package org.righteffort.ourgrocerylist.repository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ShoppingItem
 import java.util.UUID
@@ -14,6 +15,8 @@ class FakeShoppingRepository : ShoppingRepository {
     override fun newItemId(): String = UUID.randomUUID().toString()
 
     override fun observeItems(): Flow<List<ShoppingItem>> = items.asStateFlow()
+
+    override fun observeRemotelyModifiedItemIds(): Flow<Set<String>> = emptyFlow()
 
     override suspend fun apply(command: Command) {
         items.value = when (command) {

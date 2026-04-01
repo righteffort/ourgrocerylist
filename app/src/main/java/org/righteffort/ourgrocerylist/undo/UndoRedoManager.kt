@@ -40,6 +40,23 @@ class UndoRedoManager(private val repository: ShoppingRepository) {
         updateState()
     }
 
+    // Called by the ViewModel when a remote write to itemId is detected.
+    // Scans each stack from newest to oldest; the first entry referencing itemId
+    // and everything older than it are discarded. Entries newer are preserved.
+    fun pruneForRemoteWrite(itemId: String) {
+        pruneStack(undoStack, itemId)
+        pruneStack(redoStack, itemId)
+        updateState()
+    }
+
+    private fun pruneStack(stack: ArrayDeque<Command>, itemId: String) {
+        // Stack is ordered oldest-first. indexOfLast finds the newest reference.
+        val cutIndex = stack.indexOfLast { it.referencesItem(itemId) }
+        if (cutIndex >= 0) {
+            repeat(cutIndex + 1) { stack.removeFirst() }
+        }
+    }
+
     private fun updateState() {
         _state.value = UndoRedoState(
             undoAvailable = undoStack.isNotEmpty(),

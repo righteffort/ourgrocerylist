@@ -171,4 +171,76 @@ class UndoRedoManagerTest {
         manager.undo()
         assertTrue(currentNames().isEmpty())
     }
+
+    // --- pruneForRemoteWrite ---
+
+    @Test
+    fun `pruneForRemoteWrite removes matching entry and everything older from undo stack`() = runTest(UnconfinedTestDispatcher()) {
+        val bread = item("Bread")
+        manager.execute(Command.AddItem(bread))       // undo[0] — references bread
+        manager.execute(Command.AddItem(item("Milk"))) // undo[1]
+
+        manager.pruneForRemoteWrite(bread.id)
+
+        // Only AddItem(milk) remains on the undo stack; undoing it leaves bread
+        manager.undo()
+        assertFalse(manager.state.value.undoAvailable)
+        assertEquals(listOf("Bread"), currentNames())
+    }
+
+    @Test
+    fun `pruneForRemoteWrite preserves entries newer than the pruned entry`() = runTest(UnconfinedTestDispatcher()) {
+        val bread = item("Bread")
+        manager.execute(Command.AddItem(bread))          // undo[0] — references bread
+        manager.execute(Command.AddItem(item("Milk")))   // undo[1]
+        manager.execute(Command.AddItem(item("Eggs")))   // undo[2]
+
+        manager.pruneForRemoteWrite(bread.id)
+
+        // undo[1] and undo[2] (milk, eggs) survive; two undos exhaust the stack
+        manager.undo()
+        manager.undo()
+        assertFalse(manager.state.value.undoAvailable)
+        assertEquals(listOf("Bread"), currentNames())
+    }
+
+    @Test
+    fun `pruneForRemoteWrite with multiple references truncates at the newest one`() = runTest(UnconfinedTestDispatcher()) {
+        val bread = item("Bread")
+        manager.execute(Command.AddItem(bread))           // undo[0] — references bread
+        manager.execute(Command.AddItem(item("Milk")))    // undo[1]
+        manager.execute(Command.CheckItem(bread))         // undo[2] — references bread (newer)
+        manager.execute(Command.AddItem(item("Eggs")))    // undo[3]
+
+        manager.pruneForRemoteWrite(bread.id)
+
+        // Cut at undo[2] (newest bread reference); only undo[3] (eggs) survives
+        manager.undo()
+        assertFalse(manager.state.value.undoAvailable)
+    }
+
+    @Test
+    fun `pruneForRemoteWrite also prunes redo stack`() = runTest(UnconfinedTestDispatcher()) {
+        val bread = item("Bread")
+        manager.execute(Command.AddItem(bread))
+        manager.execute(Command.AddItem(item("Milk")))
+        manager.undo() // redo: [AddItem(milk)]
+        manager.undo() // redo: [AddItem(milk), AddItem(bread)]
+        assertTrue(manager.state.value.redoAvailable)
+
+        manager.pruneForRemoteWrite(bread.id)
+
+        // AddItem(bread) is the newest redo entry referencing bread; both entries removed
+        assertFalse(manager.state.value.redoAvailable)
+    }
+
+    @Test
+    fun `pruneForRemoteWrite is no-op when item not referenced in stacks`() = runTest(UnconfinedTestDispatcher()) {
+        manager.execute(Command.AddItem(item("Bread")))
+        assertTrue(manager.state.value.undoAvailable)
+
+        manager.pruneForRemoteWrite("unknown-id")
+
+        assertTrue(manager.state.value.undoAvailable)
+    }
 }

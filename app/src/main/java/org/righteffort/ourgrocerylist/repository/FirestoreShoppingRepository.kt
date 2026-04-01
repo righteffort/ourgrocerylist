@@ -1,5 +1,6 @@
 package org.righteffort.ourgrocerylist.repository
 
+import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
@@ -28,6 +29,29 @@ class FirestoreShoppingRepository(
             }
             val items = snapshot?.documents?.mapNotNull { it.toShoppingItem() } ?: emptyList()
             trySend(items)
+        }
+        awaitClose { listener.remove() }
+    }
+
+    // Emits the IDs of items modified or deleted by other clients. ADDED is excluded
+    // because the initial snapshot reports all existing documents as ADDED regardless
+    // of authorship, which would incorrectly trigger pruning for our own past writes.
+    override fun observeRemotelyModifiedItemIds(): Flow<Set<String>> = callbackFlow {
+        val listener = collection.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            val remoteIds = snapshot?.documentChanges
+                ?.filter { change ->
+                    (change.type == DocumentChange.Type.MODIFIED ||
+                        change.type == DocumentChange.Type.REMOVED) &&
+                        change.document.getString("clientId") != clientId
+                }
+                ?.map { it.document.id }
+                ?.toSet()
+                ?: emptySet()
+            if (remoteIds.isNotEmpty()) trySend(remoteIds)
         }
         awaitClose { listener.remove() }
     }

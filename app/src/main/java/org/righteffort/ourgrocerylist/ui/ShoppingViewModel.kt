@@ -34,6 +34,14 @@ class ShoppingViewModel(
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val errors: SharedFlow<String> = _errors.asSharedFlow()
 
+    init {
+        viewModelScope.launch {
+            repository.observeRemotelyModifiedItemIds()
+                .catch { e -> logAndEmitError("Failed to observe remote changes", e) }
+                .collect { itemIds -> itemIds.forEach { undoRedoManager.pruneForRemoteWrite(it) } }
+        }
+    }
+
     val uiState: StateFlow<UiState> = combine(
         repository.observeItems()
             .catch { e ->
