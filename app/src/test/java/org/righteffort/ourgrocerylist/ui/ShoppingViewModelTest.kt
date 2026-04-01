@@ -17,7 +17,14 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.repository.FakeShoppingRepository
+import org.righteffort.ourgrocerylist.repository.SharingRepository
 import org.righteffort.ourgrocerylist.undo.UndoRedoManager
+
+private class FakeSharingRepository(private val error: Exception? = null) : SharingRepository {
+    override suspend fun addEditor(email: String) {
+        if (error != null) throw error
+    }
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ShoppingViewModelTest {
@@ -226,6 +233,51 @@ class ShoppingViewModelTest {
     fun `openAddDialog onDelete is null`() {
         viewModel.openAddDialog("Bread")
         assertNull(viewModel.dialogState.value!!.onDelete)
+    }
+
+    // --- shareList ---
+
+    private fun viewModelWithSharing(sharingRepo: SharingRepository): ShoppingViewModel {
+        val repo = FakeShoppingRepository()
+        return ShoppingViewModel(
+            repository = repo,
+            undoRedoManager = UndoRedoManager(repo),
+            sharingRepository = sharingRepo,
+        ).also { vm ->
+            collectScope.launch { vm.uiState.collect {} }
+        }
+    }
+
+    @Test
+    fun `shareList on success dismisses dialog and emits 'Editor added'`() {
+        val vm = viewModelWithSharing(FakeSharingRepository())
+        vm.openShareListDialog()
+        val messages = mutableListOf<String>()
+        collectScope.launch { vm.errors.collect { messages.add(it) } }
+        vm.shareList("editor@example.com")
+        assertNull(vm.shareListDialogState.value)
+        assertEquals(listOf("Editor added"), messages)
+    }
+
+    @Test
+    fun `shareList on failure keeps dialog open with error message`() {
+        val vm = viewModelWithSharing(FakeSharingRepository(error = Exception("user not found")))
+        vm.openShareListDialog()
+        vm.shareList("editor@example.com")
+        assertEquals("user not found", vm.shareListDialogState.value?.errorMessage)
+    }
+
+    @Test
+    fun `openShareListDialog shows dialog with no error`() {
+        viewModel.openShareListDialog()
+        assertEquals(ShareListDialogState(), viewModel.shareListDialogState.value)
+    }
+
+    @Test
+    fun `dismissShareListDialog hides dialog`() {
+        viewModel.openShareListDialog()
+        viewModel.dismissShareListDialog()
+        assertNull(viewModel.shareListDialogState.value)
     }
 
     // --- undo/redo ---

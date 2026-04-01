@@ -1,32 +1,43 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
+import { setGlobalOptions } from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import * as admin from "firebase-admin";
+import { addEditorCore } from "./addEditorCore.js";
 
-import {setGlobalOptions} from "firebase-functions";
-// import {onRequest} from "firebase-functions/https";
-// import * as logger from "firebase-functions/logger";
+admin.initializeApp();
+setGlobalOptions({ maxInstances: 10 });
 
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
-
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({maxInstances: 10});
-
-// export const helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+export const addEditor = onCall(async (request) => {
+  const { listId, editorEmail } = request.data;
+  try {
+    await addEditorCore(
+      {
+        getListOwnerUid: async (id) => {
+          const doc = await admin.firestore().collection("lists").doc(id).get();
+          if (!doc.exists) return undefined;
+          const uid = doc.data()?.["owner"]?.["uid"];
+          return typeof uid === "string" ? uid : undefined;
+        },
+        resolveEmailToUid: async (email) => {
+          return (await admin.auth().getUserByEmail(email)).uid;
+        },
+        appendEditor: async (id, editor) => {
+          const listRef = admin.firestore().collection("lists").doc(id);
+          await admin.firestore().runTransaction(async (transaction) => {
+            const doc = await transaction.get(listRef);
+            const editors = (doc.data()?.["editors"] ?? {}) as Record<string, unknown>;
+            if (editor.uid in editors) {
+              throw Object.assign(new Error("Editor already added to this list"), { code: "already-exists" });
+            }
+            transaction.update(listRef, { [`editors.${editor.uid}`]: { email: editor.email } });
+          });
+        },
+      },
+      request.auth,
+      listId,
+      editorEmail,
+    );
+  } catch (e) {
+    if (e instanceof HttpsError) throw e;
+    throw new HttpsError("internal", e instanceof Error ? e.message : String(e));
+  }
+});

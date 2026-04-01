@@ -13,10 +13,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -37,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import org.righteffort.ourgrocerylist.model.ShoppingItem
@@ -52,6 +59,7 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
 
     val state by viewModel.uiState.collectAsState()
     val dialogState by viewModel.dialogState.collectAsState()
+    val shareListDialogState by viewModel.shareListDialogState.collectAsState()
     var addFieldText by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -63,6 +71,14 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
 
     dialogState?.let { ItemDialog(it) }
 
+    shareListDialogState?.let { dialogState ->
+        ShareListDialog(
+            errorMessage = dialogState.errorMessage,
+            onConfirm = { email -> viewModel.shareList(email) },
+            onDismiss = { viewModel.dismissShareListDialog() },
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -71,6 +87,9 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
+                actions = {
+                    OverflowMenu(onShareList = { viewModel.openShareListDialog() })
+                },
             )
         },
         bottomBar = {
@@ -228,6 +247,74 @@ private fun BottomBar(state: UiState, onUndo: () -> Unit, onRedo: () -> Unit) {
             Text("↪ Redo")
         }
     }
+}
+
+@Composable
+private fun OverflowMenu(onShareList: () -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    IconButton(onClick = { expanded = true }) {
+        Icon(
+            imageVector = Icons.Default.MoreVert,
+            contentDescription = "More options",
+            tint = MaterialTheme.colorScheme.onPrimary,
+        )
+    }
+    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenuItem(
+            text = { Text("Share list") },
+            onClick = {
+                expanded = false
+                onShareList()
+            },
+        )
+    }
+}
+
+@Composable
+private fun ShareListDialog(
+    errorMessage: String?,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var email by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Share list") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email address") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(onDone = {
+                        if (email.isNotBlank()) onConfirm(email.trim())
+                    }),
+                )
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(email.trim()) },
+                enabled = email.isNotBlank(),
+            ) { Text("Add") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
 
 @Composable

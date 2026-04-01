@@ -77,7 +77,10 @@ android {
         buildConfig = true
     }
     testOptions {
-        unitTests.all { it.useJUnitPlatform() }
+        unitTests {
+            all { it.useJUnitPlatform() }
+            isReturnDefaultValues = true
+        }
     }
 }
 
@@ -87,11 +90,13 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.functions)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.kotlinx.serialization.json)

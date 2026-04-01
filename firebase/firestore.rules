@@ -6,13 +6,13 @@ service cloud.firestore {
       // Remove when we want to make public
       function isAllowedUser() {
         return request.auth != null
-            && request.auth.token.email in ['tromer@gmail.com', 'sbromer@gmail.com'];
+            && request.auth.token.email in ['tromer@gmail.com', 'sbromer@gmail.com', 'test1@test.invalid', 'test2@test.invalid'];
       }
 
       function isOwner() {
         return request.auth != null
             && resource != null
-            && resource.data.owner == request.auth.uid;
+            && resource.data.owner.uid == request.auth.uid;
       }
 
       function isEditor() {
@@ -30,7 +30,7 @@ service cloud.firestore {
         let data = get(/databases/$(database)/documents/lists/$(listId)).data;
         return request.auth != null
             && data != null
-            && (request.auth.uid == data.owner
+            && (request.auth.uid == data.owner.uid
                 || (data.editors != null && request.auth.uid in data.editors));
       }
 

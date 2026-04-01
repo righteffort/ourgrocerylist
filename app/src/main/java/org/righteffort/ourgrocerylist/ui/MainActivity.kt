@@ -24,6 +24,7 @@ import kotlinx.coroutines.tasks.await
 import org.righteffort.ourgrocerylist.BuildConfig
 import org.righteffort.ourgrocerylist.OurGroceryListApp
 import org.righteffort.ourgrocerylist.R
+import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.ui.theme.OurGroceryListTheme
 
 private const val TAG = "MainActivity"
@@ -34,7 +35,7 @@ class MainActivity : ComponentActivity() {
         viewModelFactory {
             initializer {
                 val app = application as OurGroceryListApp
-                ShoppingViewModel(app.repository, app.undoRedoManager, app.initErrors)
+                ShoppingViewModel(app.repository, app.undoRedoManager, app.initErrors, app.sharingRepository)
             }
         }
     }
@@ -62,11 +63,11 @@ class MainActivity : ComponentActivity() {
     private suspend fun signInAndInitialize(app: OurGroceryListApp) {
         if (BuildConfig.USE_FIREBASE_EMULATOR) {
             try {
-                Firebase.auth.createUserWithEmailAndPassword("test@example.com", "password").await()
+                Firebase.auth.createUserWithEmailAndPassword("test1@test.invalid", "password").await()
             } catch (e: FirebaseAuthUserCollisionException) {
                 // User already exists on the emulator — proceed to sign in.
             }
-            Firebase.auth.signInWithEmailAndPassword("test@example.com", "password").await()
+            Firebase.auth.signInWithEmailAndPassword("test1@test.invalid", "password").await()
         } else {
             val currentUser = Firebase.auth.currentUser
             if (currentUser == null) {
@@ -81,9 +82,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        val uid = Firebase.auth.currentUser?.uid
+        val currentUser = Firebase.auth.currentUser
             ?: throw IllegalStateException("No authenticated user after sign-in")
-        app.repository.ensureListDocument(uid)
+        val email = currentUser.email
+            ?: throw IllegalStateException("Authenticated user has no email address")
+        app.repository.ensureListDocument(User(uid = currentUser.uid, email = email))
     }
 
     private suspend fun signInWithGoogle() {

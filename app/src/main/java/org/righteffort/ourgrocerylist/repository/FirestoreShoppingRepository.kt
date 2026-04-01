@@ -11,6 +11,7 @@ import kotlinx.coroutines.tasks.await
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.model.ShoppingItem
+import org.righteffort.ourgrocerylist.model.User
 
 class FirestoreShoppingRepository(
     private val firestore: FirebaseFirestore,
@@ -65,14 +66,16 @@ class FirestoreShoppingRepository(
     }
 
     // Creates the list document with owner/editors if it does not already exist.
-    // No-op if uid is null (user not signed in).
-    override suspend fun ensureListDocument(uid: String) {
+    override suspend fun ensureListDocument(user: User) {
         val listRef = firestore.document("lists/$listId")
         firestore.runTransaction { transaction ->
             if (!transaction.get(listRef).exists()) {
                 transaction.set(
                     listRef,
-                    mapOf("owner" to uid, "editors" to emptyList<String>()),
+                    mapOf(
+                        "owner" to mapOf("uid" to user.uid, "email" to user.email),
+                        "editors" to emptyMap<String, Any>(),
+                    ),
                 )
             }
         }.await()

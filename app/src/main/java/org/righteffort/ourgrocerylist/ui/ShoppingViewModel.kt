@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.model.ShoppingItem
+import org.righteffort.ourgrocerylist.repository.SharingRepository
 import org.righteffort.ourgrocerylist.repository.ShoppingRepository
 import org.righteffort.ourgrocerylist.undo.UndoRedoManager
 
@@ -29,6 +30,9 @@ class ShoppingViewModel(
     private val repository: ShoppingRepository,
     private val undoRedoManager: UndoRedoManager,
     appErrors: Flow<String> = emptyFlow(),
+    private val sharingRepository: SharingRepository = object : SharingRepository {
+        override suspend fun addEditor(email: String) = Unit
+    },
 ) : ViewModel() {
 
     private val _dialogState = MutableStateFlow<ItemDialogState?>(null)
@@ -154,6 +158,30 @@ class ShoppingViewModel(
 
     fun dismissDialog() {
         _dialogState.value = null
+    }
+
+    private val _shareListDialogState = MutableStateFlow<ShareListDialogState?>(null)
+    val shareListDialogState: StateFlow<ShareListDialogState?> = _shareListDialogState.asStateFlow()
+
+    fun openShareListDialog() {
+        _shareListDialogState.value = ShareListDialogState()
+    }
+
+    fun dismissShareListDialog() {
+        _shareListDialogState.value = null
+    }
+
+    fun shareList(email: String) {
+        viewModelScope.launch {
+            try {
+                sharingRepository.addEditor(email)
+                _shareListDialogState.value = null
+                _errors.tryEmit("Editor added")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to add editor", e)
+                _shareListDialogState.value = ShareListDialogState(errorMessage = e.message ?: "Failed to add editor")
+            }
+        }
     }
 
     private fun applyCommand(command: Command) {

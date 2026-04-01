@@ -1,7 +1,8 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase.
 - undo/redo
 - conflict detection and notification
-- multiple-list support in the code (and hence non-hardcoded list ids -- currently the single list has the id "default"
+- multiple-list support in the code (and hence non-hardcoded list ids
+  in fake repo -- currently the single list has the id "default"
 - acls, authentication, authorization
   - authentication will simply be through integration of Google Auth into Firestore
   - "acls" will be simply two fields on each document in the top-level
@@ -11,6 +12,8 @@ These aspects have not yet been fully designed and implemented and are deferred 
   - DONE authorization will be via firestore security rules
   - email and or in-app notifications with invites to newly shared lists.
     - search for invitee in https://gemini.google.com/app/8aac15be2e66cec4 for some help
+- removing editors; handling new editors who have never signed into
+  the app; displaying current list owner and editors in the app.
 - once we have authentication (including association of clientIds with
   user ids) we conflict notifications can include the display name of
   the other party: "Ted overwrote your change", "You overwrote
@@ -18,12 +21,14 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - display fine-tuning, e.g. more compact view; light/dark/auto
 - small/large fonts (is there a system setting that is conventional to
   follow instead of doing our own thing?)
+- cleaner app handling when 'add editor' fails on the server in any way
+- cleaner handling when user declines to login via Google or login fails
+- app disallows sharing with improperly formatted email address
 - many things from ourshoppinglist-handoff.md
 - autocomplete in add
   - basic (system-provided)
   - assist user to find exist checked items
   - maybe domain-aware
-- cleaner handling when user declines to login via Google or login fails
 - logout
 - account deletion
 - export all my lists as zip
@@ -40,7 +45,7 @@ These aspects might never be implemented
 - maintaining a list of 'invited editors' (email addresses) and
   generating invitations to install the app when lists are shared, and
   something like a 'login' function at app startup that updates
-  'invited editors' and 'editors' referening the user on their first
+  'invited editors' and 'editors' referencing the user on their first
   login, and is a no-op afterward, or something (race conditions might
   make this a little complicated)
 - Support running on an emulated device, which would required using

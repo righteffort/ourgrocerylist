@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ShoppingItem
+import org.righteffort.ourgrocerylist.model.User
 import java.util.UUID
 
 class FakeShoppingRepository : ShoppingRepository {
@@ -18,7 +19,7 @@ class FakeShoppingRepository : ShoppingRepository {
 
     override fun observeRemotelyModifiedItemIds(): Flow<Set<String>> = emptyFlow()
 
-    override suspend fun ensureListDocument(uid: String) = Unit
+    override suspend fun ensureListDocument(user: User) = Unit
 
     override suspend fun apply(command: Command) {
         items.value = when (command) {
