@@ -33,6 +33,8 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - account deletion
 - export all my lists as zip
 - unit tests for firestore security rules
+- lists trash can
+- items trash can (per list)
 
 These are hygiene issues that may have been missed
 - review for swallowed errors

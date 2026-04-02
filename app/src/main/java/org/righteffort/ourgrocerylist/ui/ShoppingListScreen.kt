@@ -1,6 +1,7 @@
 package org.righteffort.ourgrocerylist.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,9 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -46,6 +49,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import org.righteffort.ourgrocerylist.model.ListMetadata
 import org.righteffort.ourgrocerylist.model.ShoppingItem
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,6 +64,9 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
     val state by viewModel.uiState.collectAsState()
     val dialogState by viewModel.dialogState.collectAsState()
     val shareListDialogState by viewModel.shareListDialogState.collectAsState()
+    val addListDialogVisible by viewModel.addListDialogVisible.collectAsState()
+    val renameListDialogVisible by viewModel.renameListDialogVisible.collectAsState()
+    val deleteListDialogVisible by viewModel.deleteListDialogVisible.collectAsState()
     var addFieldText by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -71,24 +78,68 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
 
     dialogState?.let { ItemDialog(it) }
 
-    shareListDialogState?.let { dialogState ->
+    shareListDialogState?.let { ds ->
         ShareListDialog(
-            errorMessage = dialogState.errorMessage,
+            errorMessage = ds.errorMessage,
             onConfirm = { email -> viewModel.shareList(email) },
             onDismiss = { viewModel.dismissShareListDialog() },
+        )
+    }
+
+    if (addListDialogVisible) {
+        AddListDialog(
+            onConfirm = { name ->
+                viewModel.addList(name)
+                viewModel.dismissAddListDialog()
+            },
+            onDismiss = { viewModel.dismissAddListDialog() },
+        )
+    }
+
+    if (renameListDialogVisible) {
+        RenameListDialog(
+            currentName = state.currentListName,
+            onConfirm = { name ->
+                viewModel.renameCurrentList(name)
+                viewModel.dismissRenameListDialog()
+            },
+            onDismiss = { viewModel.dismissRenameListDialog() },
+        )
+    }
+
+    if (deleteListDialogVisible) {
+        DeleteListDialog(
+            listName = state.currentListName,
+            onConfirm = {
+                viewModel.deleteCurrentList()
+                viewModel.dismissDeleteListDialog()
+            },
+            onDismiss = { viewModel.dismissDeleteListDialog() },
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("List") },
+                title = {
+                    ListNamePill(
+                        currentListName = state.currentListName,
+                        lists = state.lists,
+                        onSelect = { listId -> viewModel.selectList(listId) },
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
                 actions = {
-                    OverflowMenu(onShareList = { viewModel.openShareListDialog() })
+                    OverflowMenu(
+                        isOwner = state.isOwner,
+                        onAddList = { viewModel.openAddListDialog() },
+                        onRenameList = { viewModel.openRenameListDialog() },
+                        onShareList = { viewModel.openShareListDialog() },
+                        onDeleteList = { viewModel.openDeleteListDialog() },
+                    )
                 },
             )
         },
@@ -142,6 +193,50 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
                         onClick = { viewModel.openEditDialog(item) },
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ListNamePill(
+    currentListName: String,
+    lists: List<ListMetadata>,
+    onSelect: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            modifier = Modifier
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(50),
+                )
+                .clickable { expanded = true }
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = currentListName.ifEmpty { "…" },
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimary,
+            )
+            Icon(
+                imageVector = Icons.Default.ArrowDropDown,
+                contentDescription = "Switch list",
+                tint = MaterialTheme.colorScheme.onPrimary,
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            lists.forEach { list ->
+                DropdownMenuItem(
+                    text = { Text(list.name) },
+                    onClick = {
+                        expanded = false
+                        onSelect(list.id)
+                    },
+                )
             }
         }
     }
@@ -250,7 +345,13 @@ private fun BottomBar(state: UiState, onUndo: () -> Unit, onRedo: () -> Unit) {
 }
 
 @Composable
-private fun OverflowMenu(onShareList: () -> Unit) {
+private fun OverflowMenu(
+    isOwner: Boolean,
+    onAddList: () -> Unit,
+    onRenameList: () -> Unit,
+    onShareList: () -> Unit,
+    onDeleteList: () -> Unit,
+) {
     var expanded by remember { mutableStateOf(false) }
     IconButton(onClick = { expanded = true }) {
         Icon(
@@ -261,13 +362,117 @@ private fun OverflowMenu(onShareList: () -> Unit) {
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
         DropdownMenuItem(
-            text = { Text("Share list") },
+            text = { Text("Add list") },
             onClick = {
                 expanded = false
-                onShareList()
+                onAddList()
             },
         )
+        if (isOwner) {
+            DropdownMenuItem(
+                text = { Text("Rename list") },
+                onClick = {
+                    expanded = false
+                    onRenameList()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Share list") },
+                onClick = {
+                    expanded = false
+                    onShareList()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Delete list") },
+                onClick = {
+                    expanded = false
+                    onDeleteList()
+                },
+            )
+        }
     }
+}
+
+@Composable
+private fun AddListDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New list") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("List name") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    if (name.isNotBlank()) onConfirm(name)
+                }),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name) }, enabled = name.isNotBlank()) {
+                Text("Create")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+@Composable
+private fun RenameListDialog(
+    currentName: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf(currentName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename list") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("List name") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    if (name.isNotBlank()) onConfirm(name)
+                }),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name) }, enabled = name.isNotBlank()) {
+                Text("Rename")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+@Composable
+private fun DeleteListDialog(listName: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete \"$listName\"?") },
+        text = {
+            Text("Are you sure? The list and all its items will be deleted immediately and permanently.")
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Delete", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
 
 @Composable

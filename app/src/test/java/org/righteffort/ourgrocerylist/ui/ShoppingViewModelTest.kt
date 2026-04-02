@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -16,12 +17,17 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.righteffort.ourgrocerylist.model.ItemFields
+import org.righteffort.ourgrocerylist.model.ListMetadata
+import org.righteffort.ourgrocerylist.model.User
+import org.righteffort.ourgrocerylist.repository.FakeListRepository
 import org.righteffort.ourgrocerylist.repository.FakeShoppingRepository
 import org.righteffort.ourgrocerylist.repository.SharingRepository
-import org.righteffort.ourgrocerylist.undo.UndoRedoManager
+
+private val TEST_USER = User(uid = "test-uid", email = "test@test.com")
+private const val LIST_ID = "list-1"
 
 private class FakeSharingRepository(private val error: Exception? = null) : SharingRepository {
-    override suspend fun addEditor(email: String) {
+    override suspend fun addEditor(listId: String, email: String) {
         if (error != null) throw error
     }
 }
@@ -32,15 +38,28 @@ class ShoppingViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var viewModel: ShoppingViewModel
     private lateinit var collectScope: CoroutineScope
+    private lateinit var fakeListRepo: FakeListRepository
+
+    private fun makeViewModel(
+        sharingRepository: SharingRepository = FakeSharingRepository(),
+        initialLists: List<ListMetadata> = listOf(ListMetadata(LIST_ID, "Groceries", isOwner = true)),
+    ): ShoppingViewModel {
+        fakeListRepo = FakeListRepository(initialLists)
+        return ShoppingViewModel(
+            currentUserFlow = MutableStateFlow(TEST_USER),
+            listRepository = fakeListRepo,
+            repositoryFactory = { FakeShoppingRepository() },
+            sharingRepository = sharingRepository,
+        ).also { vm ->
+            collectScope.launch { vm.uiState.collect {} }
+        }
+    }
 
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        val repository = FakeShoppingRepository()
-        viewModel = ShoppingViewModel(repository, UndoRedoManager(repository))
-        // Hold an active subscriber so WhileSubscribed keeps the upstream flow alive.
         collectScope = CoroutineScope(testDispatcher)
-        collectScope.launch { viewModel.uiState.collect {} }
+        viewModel = makeViewModel()
     }
 
     @AfterEach
@@ -237,20 +256,9 @@ class ShoppingViewModelTest {
 
     // --- shareList ---
 
-    private fun viewModelWithSharing(sharingRepo: SharingRepository): ShoppingViewModel {
-        val repo = FakeShoppingRepository()
-        return ShoppingViewModel(
-            repository = repo,
-            undoRedoManager = UndoRedoManager(repo),
-            sharingRepository = sharingRepo,
-        ).also { vm ->
-            collectScope.launch { vm.uiState.collect {} }
-        }
-    }
-
     @Test
     fun `shareList on success dismisses dialog and emits 'Editor added'`() {
-        val vm = viewModelWithSharing(FakeSharingRepository())
+        val vm = makeViewModel(sharingRepository = FakeSharingRepository())
         vm.openShareListDialog()
         val messages = mutableListOf<String>()
         collectScope.launch { vm.errors.collect { messages.add(it) } }
@@ -261,7 +269,7 @@ class ShoppingViewModelTest {
 
     @Test
     fun `shareList on failure keeps dialog open with error message`() {
-        val vm = viewModelWithSharing(FakeSharingRepository(error = Exception("user not found")))
+        val vm = makeViewModel(sharingRepository = FakeSharingRepository(error = Exception("user not found")))
         vm.openShareListDialog()
         vm.shareList("editor@example.com")
         assertEquals("user not found", vm.shareListDialogState.value?.errorMessage)
@@ -305,5 +313,135 @@ class ShoppingViewModelTest {
         viewModel.redo()
         assertEquals(listOf("Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
         assertFalse(viewModel.uiState.value.redoAvailable)
+    }
+
+    // --- list operations ---
+
+    @Test
+    fun `uiState reflects current list name and isOwner`() {
+        assertEquals("Groceries", viewModel.uiState.value.currentListName)
+        assertTrue(viewModel.uiState.value.isOwner)
+    }
+
+    @Test
+    fun `uiState lists contains all lists`() {
+        assertEquals(listOf(ListMetadata(LIST_ID, "Groceries", isOwner = true)), viewModel.uiState.value.lists)
+    }
+
+    @Test
+    fun `addList creates new list and switches to it`() {
+        viewModel.addList("Hardware")
+        val lists = viewModel.uiState.value.lists
+        assertEquals(2, lists.size)
+        assertEquals("Hardware", viewModel.uiState.value.currentListName)
+    }
+
+    @Test
+    fun `addList with blank name does nothing`() {
+        viewModel.addList("  ")
+        assertEquals(1, viewModel.uiState.value.lists.size)
+    }
+
+    @Test
+    fun `selectList switches current list`() {
+        viewModel.addList("Hardware")
+        val hardwareId = viewModel.uiState.value.lists.first { it.name == "Hardware" }.id
+        viewModel.selectList(LIST_ID)
+        assertEquals("Groceries", viewModel.uiState.value.currentListName)
+        viewModel.selectList(hardwareId)
+        assertEquals("Hardware", viewModel.uiState.value.currentListName)
+    }
+
+    @Test
+    fun `undo stacks are independent per list`() {
+        viewModel.addItem("Bread")
+        assertTrue(viewModel.uiState.value.undoAvailable)
+
+        viewModel.addList("Hardware")
+        // New list: undo stack should be empty
+        assertFalse(viewModel.uiState.value.undoAvailable)
+
+        viewModel.selectList(LIST_ID)
+        // Back to Groceries: undo should still be available
+        assertTrue(viewModel.uiState.value.undoAvailable)
+    }
+
+    @Test
+    fun `renameCurrentList updates list name`() {
+        viewModel.renameCurrentList("Weekly Shop")
+        assertEquals("Weekly Shop", viewModel.uiState.value.currentListName)
+    }
+
+    @Test
+    fun `renameCurrentList with blank name does nothing`() {
+        viewModel.renameCurrentList("  ")
+        assertEquals("Groceries", viewModel.uiState.value.currentListName)
+    }
+
+    @Test
+    fun `deleteCurrentList removes list and falls back to another`() {
+        viewModel.addList("Hardware")
+        assertEquals("Hardware", viewModel.uiState.value.currentListName)
+        viewModel.deleteCurrentList()
+        assertEquals(1, viewModel.uiState.value.lists.size)
+        assertEquals("Groceries", viewModel.uiState.value.currentListName)
+    }
+
+    @Test
+    fun `deleteCurrentList on last list recreates default Groceries list`() {
+        viewModel.deleteCurrentList()
+        // FakeListRepository deletes the list, then the ViewModel's init block
+        // detects empty list and calls createList("Groceries").
+        assertEquals(1, viewModel.uiState.value.lists.size)
+        assertEquals("Groceries", viewModel.uiState.value.currentListName)
+    }
+
+    @Test
+    fun `non-owner list hides isOwner in uiState`() {
+        val vm = makeViewModel(
+            initialLists = listOf(ListMetadata("shared-1", "Their List", isOwner = false)),
+        )
+        assertFalse(vm.uiState.value.isOwner)
+    }
+
+    @Test
+    fun `owned list sorts before editor list`() {
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata("a", "Apples", isOwner = false),
+                ListMetadata("b", "Bananas", isOwner = true),
+            ),
+        )
+        assertEquals(listOf("Bananas", "Apples"), vm.uiState.value.lists.map { it.name })
+        assertEquals("Bananas", vm.uiState.value.currentListName)
+    }
+
+    // --- list dialog visibility ---
+
+    @Test
+    fun `openAddListDialog and dismissAddListDialog toggle visibility`() {
+        assertFalse(viewModel.addListDialogVisible.value)
+        viewModel.openAddListDialog()
+        assertTrue(viewModel.addListDialogVisible.value)
+        viewModel.dismissAddListDialog()
+        assertFalse(viewModel.addListDialogVisible.value)
+    }
+
+    @Test
+    fun `openRenameListDialog and dismissRenameListDialog toggle visibility`() {
+        assertFalse(viewModel.renameListDialogVisible.value)
+        viewModel.openRenameListDialog()
+        assertTrue(viewModel.renameListDialogVisible.value)
+        viewModel.dismissRenameListDialog()
+        assertFalse(viewModel.renameListDialogVisible.value)
+    }
+
+    @Test
+    fun `openDeleteListDialog and dismissDeleteListDialog toggle visibility`() {
+        assertFalse(viewModel.deleteListDialogVisible.value)
+        viewModel.openDeleteListDialog()
+        assertTrue(viewModel.deleteListDialogVisible.value)
+        viewModel.dismissDeleteListDialog()
+        assertFalse(viewModel.deleteListDialogVisible.value)
     }
 }

@@ -3,7 +3,6 @@ package org.righteffort.ourgrocerylist.repository
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -11,7 +10,6 @@ import kotlinx.coroutines.tasks.await
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.model.ShoppingItem
-import org.righteffort.ourgrocerylist.model.User
 
 class FirestoreShoppingRepository(
     private val firestore: FirebaseFirestore,
@@ -19,17 +17,11 @@ class FirestoreShoppingRepository(
     private val clientId: String,
 ) : ShoppingRepository {
 
-    // Completed by ensureListDocument after the list document is guaranteed to exist.
-    // observeItems and observeRemotelyModifiedItemIds await this before attaching
-    // Firestore listeners so that security rules can always read the list document.
-    private val _ready = CompletableDeferred<Unit>()
-
     private val collection get() = firestore.collection("lists/$listId/items")
 
     override fun newItemId(): String = collection.document().id
 
     override fun observeItems(): Flow<List<ShoppingItem>> = callbackFlow {
-        _ready.await()
         val listener = collection.addSnapshotListener { snapshot, error ->
             if (error != null) {
                 close(error)
@@ -45,7 +37,6 @@ class FirestoreShoppingRepository(
     // because the initial snapshot reports all existing documents as ADDED regardless
     // of authorship, which would incorrectly trigger pruning for our own past writes.
     override fun observeRemotelyModifiedItemIds(): Flow<Set<String>> = callbackFlow {
-        _ready.await()
         val listener = collection.addSnapshotListener { snapshot, error ->
             if (error != null) {
                 close(error)
@@ -63,23 +54,6 @@ class FirestoreShoppingRepository(
             if (remoteIds.isNotEmpty()) trySend(remoteIds)
         }
         awaitClose { listener.remove() }
-    }
-
-    // Creates the list document with owner/editors if it does not already exist.
-    override suspend fun ensureListDocument(user: User) {
-        val listRef = firestore.document("lists/$listId")
-        firestore.runTransaction { transaction ->
-            if (!transaction.get(listRef).exists()) {
-                transaction.set(
-                    listRef,
-                    mapOf(
-                        "owner" to mapOf("uid" to user.uid, "email" to user.email),
-                        "editors" to emptyMap<String, Any>(),
-                    ),
-                )
-            }
-        }.await()
-        _ready.complete(Unit)
     }
 
     override suspend fun apply(command: Command) {

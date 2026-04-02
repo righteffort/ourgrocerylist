@@ -1,5 +1,5 @@
 package org.righteffort.ourgrocerylist.repository
 
 interface SharingRepository {
-    suspend fun addEditor(email: String)
+    suspend fun addEditor(listId: String, email: String)
 }

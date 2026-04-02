@@ -19,12 +19,14 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import org.righteffort.ourgrocerylist.BuildConfig
 import org.righteffort.ourgrocerylist.OurGroceryListApp
 import org.righteffort.ourgrocerylist.R
 import org.righteffort.ourgrocerylist.model.User
+import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
 import org.righteffort.ourgrocerylist.ui.theme.OurGroceryListTheme
 
 private const val TAG = "MainActivity"
@@ -35,7 +37,19 @@ class MainActivity : ComponentActivity() {
         viewModelFactory {
             initializer {
                 val app = application as OurGroceryListApp
-                ShoppingViewModel(app.repository, app.undoRedoManager, app.initErrors, app.sharingRepository)
+                ShoppingViewModel(
+                    currentUserFlow = app.currentUser,
+                    listRepository = app.listRepository,
+                    repositoryFactory = { listId ->
+                        FirestoreShoppingRepository(
+                            firestore = Firebase.firestore,
+                            listId = listId,
+                            clientId = app.clientId,
+                        )
+                    },
+                    sharingRepository = app.sharingRepository,
+                    appErrors = app.initErrors,
+                )
             }
         }
     }
@@ -86,7 +100,7 @@ class MainActivity : ComponentActivity() {
             ?: throw IllegalStateException("No authenticated user after sign-in")
         val email = currentUser.email
             ?: throw IllegalStateException("Authenticated user has no email address")
-        app.repository.ensureListDocument(User(uid = currentUser.uid, email = email))
+        app._currentUser.value = User(uid = currentUser.uid, email = email)
     }
 
     private suspend fun signInWithGoogle() {

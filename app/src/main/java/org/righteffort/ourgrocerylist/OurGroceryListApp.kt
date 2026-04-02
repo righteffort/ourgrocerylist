@@ -10,15 +10,18 @@ import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
 import com.google.firebase.functions.functions
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.tasks.await
 import org.righteffort.ourgrocerylist.client.ClientIdRepository
+import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.FirebaseSharingRepository
-import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
+import org.righteffort.ourgrocerylist.repository.FirestoreListRepository
 import org.righteffort.ourgrocerylist.repository.SharingRepository
-import org.righteffort.ourgrocerylist.repository.ShoppingRepository
-import org.righteffort.ourgrocerylist.undo.UndoRedoManager
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_prefs")
 
@@ -28,6 +31,10 @@ class OurGroceryListApp : Application() {
     // internal so MainActivity can emit errors from the auth/init coroutine it owns.
     internal val _initErrors = MutableSharedFlow<String>(replay = 1)
     val initErrors: SharedFlow<String> = _initErrors.asSharedFlow()
+
+    // Set by MainActivity after auth succeeds. Drives observeLists() in FirestoreListRepository.
+    internal val _currentUser = MutableStateFlow<User?>(null)
+    val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
     override fun onCreate() {
         super.onCreate()
@@ -44,17 +51,19 @@ class OurGroceryListApp : Application() {
         runBlocking { ClientIdRepository(dataStore).getOrCreate() }
     }
 
-    val repository: ShoppingRepository by lazy {
-        FirestoreShoppingRepository(
+    val listRepository: FirestoreListRepository by lazy {
+        FirestoreListRepository(
             firestore = Firebase.firestore,
-            listId = "default",
-            clientId = clientId,
+            currentUserFlow = _currentUser,
+            callDeleteList = { listId ->
+                Firebase.functions.getHttpsCallable("deleteList")
+                    .call(mapOf("listId" to listId))
+                    .await()
+            },
         )
     }
 
     val sharingRepository: SharingRepository by lazy {
-        FirebaseSharingRepository(listId = "default")
+        FirebaseSharingRepository()
     }
-
-    val undoRedoManager: UndoRedoManager by lazy { UndoRedoManager(repository) }
 }
