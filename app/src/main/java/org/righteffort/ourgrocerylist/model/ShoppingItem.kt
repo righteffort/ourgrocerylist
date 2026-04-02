@@ -27,7 +27,7 @@ data class ItemFields(
     }
 
     companion object {
-        private val fingerprintJson = Json { }
+        private val fingerprintJson = Json.Default
     }
 }
 

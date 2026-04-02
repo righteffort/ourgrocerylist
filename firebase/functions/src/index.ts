@@ -9,8 +9,12 @@ admin.initializeApp();
 setGlobalOptions({ maxInstances: 10 });
 
 export const deleteList = onCall(async (request) => {
+  console.log(`deleteList(${request.data})`);
   const { listId } = request.data;
   try {
+    const isEmulator = process.env["FUNCTIONS_EMULATOR"] === 'true';
+    console.log(`isEmulator: ${isEmulator}`);
+    console.log(`auth host: ${process.env["FIREBASE_AUTH_EMULATOR_HOST"]}`);
     await deleteListCore(
       {
         getListOwnerUid: async (id) => {
@@ -24,6 +28,9 @@ export const deleteList = onCall(async (request) => {
             project: process.env["GCLOUD_PROJECT"],
             recursive: true,
             yes: true,
+	    // @ts-expect-error: force is not exposed in the type definition
+	    force: true,
+	    ...( isEmulator ? {token: 'dummy-token'} : {})
           });
         },
       },
@@ -31,12 +38,18 @@ export const deleteList = onCall(async (request) => {
       listId,
     );
   } catch (e) {
+    const msg = e instanceof Error ? ("code" in e ? `${e.code}, ${e.message}` : e.message) : String(e);
+    console.error(`Uh oh: ${msg}`);
     if (e instanceof HttpsError) throw e;
-    throw new HttpsError("internal", e instanceof Error ? e.message : String(e));
+    throw new HttpsError(
+      "internal",
+      msg
+    );
   }
 });
 
 export const addEditor = onCall(async (request) => {
+  console.log(`addEditor(${request.data})`);
   const { listId, editorEmail } = request.data;
   try {
     await addEditorCore(
@@ -67,7 +80,12 @@ export const addEditor = onCall(async (request) => {
       editorEmail,
     );
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(`Caught exception ${msg}`);
     if (e instanceof HttpsError) throw e;
-    throw new HttpsError("internal", e instanceof Error ? e.message : String(e));
+    throw new HttpsError(
+      "internal",
+      msg
+    );
   }
 });

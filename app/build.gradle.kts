@@ -57,8 +57,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     flavorDimensions += "environment"
     productFlavors {
@@ -103,6 +103,7 @@ dependencies {
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
+    implementation(libs.commons.csv)
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.bundles.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

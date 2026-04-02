@@ -1,21 +1,31 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase.
-- undo/redo
+- list import
+- WIP list import
+- delete list says 'unauthenticated'
+- race condition on import (and create?) ? we get a null failure in
+  firestore rules when we try to observe the list, but the list is imported
+- race condition (?) on delete list, continues to hang around in UI after it is gone.
+- default imported list name to basename of filename ('List.csv' -> 'List')
+- coderabbit feedback
+- bug: add editor succeeds but dialog box stays up
+- ugh: have to allow allUsers access to functions
+- persist undo/redo
 - conflict detection and notification
-- multiple-list support in the code (and hence non-hardcoded list ids
+- verify in app: multiple-list support in the code (and hence non-hardcoded list ids
   in fake repo -- currently the single list has the id "default"
-- acls, authentication, authorization
-  - authentication will simply be through integration of Google Auth into Firestore
-  - "acls" will be simply two fields on each document in the top-level
+- DONE acls, authentication, authorization
+  - DONE authentication will simply be through integration of Google Auth into Firestore
+  - DONE "acls" will be simply two fields on each document in the top-level
     lists collection: owner (the firestore provided user id for the
     creator of the list) and editors (the user ids that the owner has
     shared the list with)
   - DONE authorization will be via firestore security rules
-  - email and or in-app notifications with invites to newly shared lists.
-    - search for invitee in https://gemini.google.com/app/8aac15be2e66cec4 for some help
+- email and or in-app notifications with invites to newly shared lists.
+  - search for invitee in https://gemini.google.com/app/8aac15be2e66cec4 for some help
 - removing editors; handling new editors who have never signed into
   the app; displaying current list owner and editors in the app.
 - once we have authentication (including association of clientIds with
-  user ids) we conflict notifications can include the display name of
+  user ids), conflict notifications can include the display name of
   the other party: "Ted overwrote your change", "You overwrote
   Claude's change".
 - display fine-tuning, e.g. more compact view; light/dark/auto
@@ -41,7 +51,7 @@ These are hygiene issues that may have been missed
 - review for code that compromises strong typechecking (e.g. by using typescript syntax, overly permissive casts in any language)
 
 These aspects might never be implemented
-
+- user-selected CSV import headers
 - detection of conflicts between mutations and deletes, presumably involving tombstones
 - server-side validation of client-provided fingerprints 
 - maintaining a list of 'invited editors' (email addresses) and

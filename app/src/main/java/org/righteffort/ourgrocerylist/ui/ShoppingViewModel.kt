@@ -3,6 +3,7 @@ package org.righteffort.ourgrocerylist.ui
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -21,13 +22,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ItemFields
-import org.righteffort.ourgrocerylist.model.ListMetadata
 import org.righteffort.ourgrocerylist.model.ShoppingItem
 import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.ListRepository
 import org.righteffort.ourgrocerylist.repository.ShoppingRepository
 import org.righteffort.ourgrocerylist.repository.SharingRepository
 import org.righteffort.ourgrocerylist.undo.UndoRedoManager
+import org.righteffort.ourgrocerylist.util.CsvImporter
+import org.righteffort.ourgrocerylist.util.CsvParseException
 
 private val ITEM_COMPARATOR = compareBy<ShoppingItem> { it.fields.name.lowercase() }
 private const val TAG = "ShoppingViewModel"
@@ -74,6 +76,9 @@ class ShoppingViewModel(
 
     private val _deleteListDialogVisible = MutableStateFlow(false)
     val deleteListDialogVisible: StateFlow<Boolean> = _deleteListDialogVisible.asStateFlow()
+
+    private val _importListDialogState = MutableStateFlow<ImportListDialogState?>(null)
+    val importListDialogState: StateFlow<ImportListDialogState?> = _importListDialogState.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -320,6 +325,61 @@ class ShoppingViewModel(
     fun openDeleteListDialog() { _deleteListDialogVisible.value = true }
     fun dismissDeleteListDialog() { _deleteListDialogVisible.value = false }
 
+    // --- Import list ---
+
+    fun openImportListDialog() { _importListDialogState.value = ImportListDialogState() }
+    fun dismissImportListDialog() { _importListDialogState.value = null }
+
+    fun importListFromCsv(name: String, csvContent: String) {
+        val user = currentUserFlow.value ?: return
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+
+        val existingNames = uiState.value.lists.map { it.name }.toSet()
+        val uniqueName = uniqueListName(trimmed, existingNames)
+        if (uniqueName != trimmed) {
+            _importListDialogState.value = ImportListDialogState(
+                proposedName = uniqueName,
+                errorMessage = "\"$trimmed\" already exists.",
+            )
+            return
+        }
+
+        val items = try {
+            CsvImporter.parse(csvContent)
+        } catch (e: CsvParseException) {
+            _importListDialogState.value = ImportListDialogState(errorMessage = e.message)
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val listId = listRepository.createList(user, uniqueName)
+                val repo = getOrCreateResources(listId).repository
+                for (fields in items) {
+                    repo.apply(Command.AddItem(ShoppingItem(id = repo.newItemId(), fields = fields)))
+                }
+                _currentListId.value = listId
+                dismissImportListDialog()
+            } catch (e: Exception) {
+                logAndEmitError("Failed to import list", e)
+            }
+        }
+    }
+
+    private fun uniqueListName(desired: String, existingNames: Set<String>): String {
+        val lowerExisting = existingNames.map { it.lowercase() }.toSet()
+        if (desired.lowercase() !in lowerExisting) return desired
+        val suffixPattern = Regex(
+            "^${Regex.escape(desired)} \\((\\d+)\\)$",
+            RegexOption.IGNORE_CASE,
+        )
+        val maxSuffix = existingNames
+            .mapNotNull { suffixPattern.matchEntire(it)?.groupValues?.get(1)?.toIntOrNull() }
+            .maxOrNull() ?: 0
+        return "$desired (${maxSuffix + 1})"
+    }
+
     // --- Share list ---
 
     fun openShareListDialog() { _shareListDialogState.value = ShareListDialogState() }
@@ -358,6 +418,13 @@ class ShoppingViewModel(
     }
 
     private fun logAndEmitFatalError(message: String, e: Throwable) {
+        if (e.message != null) {
+            Log.e(TAG, e.message!!)
+        }
+        // TODO: should push this into Firebase code probably
+        if (e is FirebaseFunctionsException && e.details != null) {
+             Log.e(TAG, e.details.toString())
+        }
         Log.e(TAG, message, e)
         _fatalError.value = e.message ?: message
     }

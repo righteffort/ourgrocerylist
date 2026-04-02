@@ -1,5 +1,5 @@
 import { HttpsError } from "firebase-functions/v2/https";
-import type { FirebaseError } from "firebase-admin/app";
+import { FirebaseError } from "firebase-admin";
 
 export type Editor = { uid: string; email: string };
 

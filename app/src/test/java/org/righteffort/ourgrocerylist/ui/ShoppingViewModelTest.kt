@@ -444,4 +444,82 @@ class ShoppingViewModelTest {
         viewModel.dismissDeleteListDialog()
         assertFalse(viewModel.deleteListDialogVisible.value)
     }
+
+    // --- importListFromCsv ---
+
+    private val SIMPLE_CSV = "name,quantity,checked\nApples,3.0,false\nBread,1.0,true"
+
+    @Test
+    fun `importListFromCsv creates list with correct items and switches to it`() {
+        viewModel.importListFromCsv("Shopping", SIMPLE_CSV)
+        assertEquals("Shopping", viewModel.uiState.value.currentListName)
+        assertEquals(2, viewModel.uiState.value.lists.size)
+        assertEquals(listOf("Apples"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertEquals(listOf("Bread"), viewModel.uiState.value.checkedItems.map { it.fields.name })
+        assertEquals(3.0, viewModel.uiState.value.uncheckedItems.single().fields.quantity)
+        assertNull(viewModel.importListDialogState.value)
+    }
+
+    @Test
+    fun `importListFromCsv with taken name updates dialog with proposed name and error`() {
+        // "Groceries" already exists in the initial list
+        viewModel.openImportListDialog()
+        viewModel.importListFromCsv("Groceries", SIMPLE_CSV)
+        val ds = viewModel.importListDialogState.value!!
+        assertEquals("Groceries (1)", ds.proposedName)
+        assertTrue(ds.errorMessage!!.contains("Groceries"))
+        // No new list created
+        assertEquals(1, viewModel.uiState.value.lists.size)
+    }
+
+    @Test
+    fun `importListFromCsv name collision is case-insensitive`() {
+        viewModel.openImportListDialog()
+        viewModel.importListFromCsv("groceries", SIMPLE_CSV)
+        assertEquals("groceries (1)", viewModel.importListDialogState.value?.proposedName)
+    }
+
+    @Test
+    fun `importListFromCsv proposes max existing suffix plus one`() {
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata(LIST_ID, "Groceries", isOwner = true),
+                ListMetadata("list-2", "Groceries (2)", isOwner = true),
+            ),
+        )
+        vm.openImportListDialog()
+        vm.importListFromCsv("Groceries", SIMPLE_CSV)
+        assertEquals("Groceries (3)", vm.importListDialogState.value?.proposedName)
+    }
+
+    @Test
+    fun `importListFromCsv with CSV parse error shows error in dialog and creates no list`() {
+        viewModel.openImportListDialog()
+        viewModel.importListFromCsv("New List", "quantity,checked\n1.0,false")
+        val ds = viewModel.importListDialogState.value!!
+        assertNull(ds.proposedName)
+        assertTrue(ds.errorMessage!!.contains("name"))
+        assertEquals(1, viewModel.uiState.value.lists.size)
+    }
+
+    @Test
+    fun `imported items are not on the undo stack`() {
+        viewModel.importListFromCsv("Shopping", SIMPLE_CSV)
+        assertFalse(viewModel.uiState.value.undoAvailable)
+    }
+
+    @Test
+    fun `openImportListDialog and dismissImportListDialog toggle state`() {
+        assertNull(viewModel.importListDialogState.value)
+        viewModel.openImportListDialog()
+        assertEquals(ImportListDialogState(), viewModel.importListDialogState.value)
+        viewModel.dismissImportListDialog()
+        assertNull(viewModel.importListDialogState.value)
+    }
+
+    @Test
+    fun `importListFromCsv with blank name does nothing`() {
+        viewModel.importListFromCsv("  ", SIMPLE_CSV)
+        assertEquals(1, viewModel.uiState.value.lists.size)
+    }
 }

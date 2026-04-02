@@ -1,8 +1,11 @@
 package org.righteffort.ourgrocerylist.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
@@ -42,13 +46,18 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.righteffort.ourgrocerylist.model.ListMetadata
 import org.righteffort.ourgrocerylist.model.ShoppingItem
 
@@ -67,6 +76,7 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
     val addListDialogVisible by viewModel.addListDialogVisible.collectAsState()
     val renameListDialogVisible by viewModel.renameListDialogVisible.collectAsState()
     val deleteListDialogVisible by viewModel.deleteListDialogVisible.collectAsState()
+    val importListDialogState by viewModel.importListDialogState.collectAsState()
     var addFieldText by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -107,6 +117,14 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
         )
     }
 
+    importListDialogState?.let { ds ->
+        ImportListDialog(
+            dialogState = ds,
+            onImport = { name, csv -> viewModel.importListFromCsv(name, csv) },
+            onDismiss = { viewModel.dismissImportListDialog() },
+        )
+    }
+
     if (deleteListDialogVisible) {
         DeleteListDialog(
             listName = state.currentListName,
@@ -138,6 +156,7 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
                         onAddList = { viewModel.openAddListDialog() },
                         onRenameList = { viewModel.openRenameListDialog() },
                         onShareList = { viewModel.openShareListDialog() },
+                        onImportList = { viewModel.openImportListDialog() },
                         onDeleteList = { viewModel.openDeleteListDialog() },
                     )
                 },
@@ -350,6 +369,7 @@ private fun OverflowMenu(
     onAddList: () -> Unit,
     onRenameList: () -> Unit,
     onShareList: () -> Unit,
+    onImportList: () -> Unit,
     onDeleteList: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -381,6 +401,13 @@ private fun OverflowMenu(
                 onClick = {
                     expanded = false
                     onShareList()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Import list from CSV") },
+                onClick = {
+                    expanded = false
+                    onImportList()
                 },
             )
             DropdownMenuItem(
@@ -547,6 +574,92 @@ private fun FatalErrorScreen(message: String) {
         }
     }
 }
+
+@Composable
+private fun ImportListDialog(
+    dialogState: ImportListDialogState,
+    onImport: (name: String, csvContent: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var name by remember { mutableStateOf("") }
+    var selectedFileName by remember { mutableStateOf<String?>(null) }
+    var csvContent by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(dialogState.proposedName) {
+        if (dialogState.proposedName != null) {
+            name = dialogState.proposedName
+        }
+    }
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: uri.toString()
+            selectedFileName = fileName
+            if (name.isBlank()) {
+                name = suggestedListName(fileName)
+            }
+            scope.launch {
+                csvContent = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
+                }
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Import list from CSV") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("List name") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(onClick = { launcher.launch("*/*") }) {
+                        Text("Choose file")
+                    }
+                    Text(
+                        text = selectedFileName ?: "No file selected",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (selectedFileName != null) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
+                if (dialogState.errorMessage != null) {
+                    Text(
+                        text = dialogState.errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onImport(name, csvContent ?: return@TextButton) },
+                enabled = name.isNotBlank() && csvContent != null,
+            ) { Text("Import") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+internal fun suggestedListName(fileName: String): String =
+    fileName.substringBeforeLast('.', fileName)
 
 private fun formatQuantity(quantity: Double): String {
     return "×${formatQuantityNumber(quantity)}"

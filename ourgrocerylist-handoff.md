@@ -15,7 +15,10 @@ This document captures all design and architecture decisions made so far.
 
 ## What the app is
 
-A native Android shopping list app in Kotlin. Multiple named lists, each containing named items with optional quantity. Users check items off as they shop. Designed for household use, with real-time multi-user collaboration via Firestore as the target state.
+A native Android shopping list app in Kotlin. Multiple named lists,
+each containing named items with optional quantity. Users check items
+off as they shop. Designed for household use, with real-time
+multi-user collaboration via Firestore as the target state.
 
 There is no special case for offline operation. The app always runs
 against Firestore — pointed at the Firebase local emulator during
@@ -28,7 +31,7 @@ configuration. Fakes are used in unit tests only.
 
 ## V0 scope
 
-- Single-user, multi-client.
+- Multi-user, multi-client.
 - The architecture must support adding multi-user and cloud collaboration later without structural rework.
 
 ---

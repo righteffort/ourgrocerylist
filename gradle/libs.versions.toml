@@ -16,6 +16,7 @@ datastore = "1.2.1"  # https://developer.android.com/jetpack/androidx/releases/d
 kotlinx-serialization = "1.10.0"  # https://github.com/Kotlin/kotlinx.serialization/releases
 credentials = "1.5.0"  # https://developer.android.com/jetpack/androidx/releases/credentials
 googleid = "1.2.0"  # https://developers.google.com/identity/android-credential-manager/releases
+commons-csv = "1.14.1"  # https://commons.apache.org/csv/download_csv.cgi
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -43,6 +44,7 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
 androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
 googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
+commons-csv = { group = "org.apache.commons", name = "commons-csv", version.ref = "commons-csv" }
 
 
 [plugins]
