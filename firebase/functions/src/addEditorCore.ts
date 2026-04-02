@@ -30,7 +30,10 @@ export async function addEditorCore(
     throw new HttpsError("not-found", "List not found");
   }
   if (ownerUid !== auth.uid) {
-    throw new HttpsError("permission-denied", "Only the list owner can add editors");
+    throw new HttpsError(
+      "permission-denied",
+      "Only the list owner can add editors",
+    );
   }
 
   let editorUid: string;
@@ -44,14 +47,20 @@ export async function addEditorCore(
   }
 
   if (editorUid === auth.uid) {
-    throw new HttpsError("invalid-argument", "The list owner cannot be added as an editor");
+    throw new HttpsError(
+      "invalid-argument",
+      "The list owner cannot be added as an editor",
+    );
   }
 
   try {
     await deps.appendEditor(listId, { uid: editorUid, email: editorEmail });
   } catch (e) {
     if ((e as { code?: string }).code === "already-exists") {
-      throw new HttpsError("already-exists", `${editorEmail} is already an editor of this list`);
+      throw new HttpsError(
+        "already-exists",
+        `${editorEmail} is already an editor of this list`,
+      );
     }
     throw e;
   }

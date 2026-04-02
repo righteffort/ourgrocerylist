@@ -67,11 +67,19 @@ export const addEditor = onCall(async (request) => {
           const listRef = admin.firestore().collection("lists").doc(id);
           await admin.firestore().runTransaction(async (transaction) => {
             const doc = await transaction.get(listRef);
-            const editors = (doc.data()?.["editors"] ?? {}) as Record<string, unknown>;
+            const editors = (doc.data()?.["editors"] ?? {}) as Record<
+              string,
+              unknown
+            >;
             if (editor.uid in editors) {
-              throw Object.assign(new Error("Editor already added to this list"), { code: "already-exists" });
+              throw Object.assign(
+                new Error("Editor already added to this list"),
+                { code: "already-exists" },
+              );
             }
-            transaction.update(listRef, { [`editors.${editor.uid}`]: { email: editor.email } });
+            transaction.update(listRef, {
+              [`editors.${editor.uid}`]: { email: editor.email },
+            });
           });
         },
       },

@@ -17,13 +17,14 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "org.righteffort.ourgrocerylist"
     compileSdk {
+        // https://developer.android.com/tools/releases/platforms
         version = release(36) {
             minorApiLevel = 1
         }
     }
     defaultConfig {
         applicationId = "org.righteffort.ourgrocerylist"
-        minSdk = 34
+        minSdk = 31  // Android 12
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"

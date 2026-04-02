@@ -22,7 +22,10 @@ export async function deleteListCore(
     throw new HttpsError("not-found", "List not found");
   }
   if (ownerUid !== auth.uid) {
-    throw new HttpsError("permission-denied", "Only the list owner can delete the list");
+    throw new HttpsError(
+      "permission-denied",
+      "Only the list owner can delete the list",
+    );
   }
 
   await deps.deleteList(listId);

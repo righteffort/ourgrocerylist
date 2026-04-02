@@ -6,7 +6,12 @@ service cloud.firestore {
       // Remove when we want to make public
       function isAllowedUser() {
         return request.auth != null
-            && request.auth.token.email in ['tromer@gmail.com', 'sbromer@gmail.com', 'test1@test.invalid', 'test2@test.invalid'];
+            && request.auth.token.email in ['tromer@gmail.com',
+                                            'sbromer@gmail.com',
+                                            'thr.notes@gmail.com',
+                                            'test1@test.invalid',
+                                            'test2@test.invalid'
+                                           ];
       }
 
       function isOwner() {

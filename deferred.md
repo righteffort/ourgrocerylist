@@ -10,8 +10,10 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - bug: add editor succeeds but dialog box stays up
 - ugh: have to allow allUsers access to functions
 - persist undo/redo
+- persist selected list
+- sensible error handling
 - conflict detection and notification
-- verify in app: multiple-list support in the code (and hence non-hardcoded list ids
+- DONE multiple-list support in the code (and hence non-hardcoded list ids
   in fake repo -- currently the single list has the id "default"
 - DONE acls, authentication, authorization
   - DONE authentication will simply be through integration of Google Auth into Firestore
@@ -45,10 +47,14 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - unit tests for firestore security rules
 - lists trash can
 - items trash can (per list)
+- integration tests
+- re-order lists
+- search (all lists? within list? selected lists?)
 
 These are hygiene issues that may have been missed
 - review for swallowed errors
 - review for code that compromises strong typechecking (e.g. by using typescript syntax, overly permissive casts in any language)
+- review for garbage unit tests (e.g. that just restate the implementation w/mocks instead of the effects)
 
 These aspects might never be implemented
 - user-selected CSV import headers
