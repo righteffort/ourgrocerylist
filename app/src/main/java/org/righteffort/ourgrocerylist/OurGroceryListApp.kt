@@ -26,6 +26,10 @@ import org.righteffort.ourgrocerylist.repository.SharingRepository
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_prefs")
 
+// TODO: This probably belongs somewhere else.
+val Firebase.appFunctions: FirebaseFunctions
+    get() = this.functions("us-west1")  // TODO: Don't hardcode us-west1!
+
 class OurGroceryListApp : Application() {
 
     // replay=1 so the ViewModel sees this error even if it subscribes after emission.
@@ -57,7 +61,7 @@ class OurGroceryListApp : Application() {
             firestore = Firebase.firestore,
             currentUserFlow = _currentUser,
             callDeleteList = { listId ->
-                Firebase.functions.getHttpsCallable("deleteList")
+                Firebase.appFunctions.getHttpsCallable("deleteList")
                     .call(mapOf("listId" to listId))
                     .await()
             },

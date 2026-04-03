@@ -1,6 +1,5 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase.
-- list import
-- WIP list import
+- check that https://console.cloud.google.com/run/detail/us-west1/deletelist/security?project=ourgrocerylist doesn't say public access
 - delete list says 'unauthenticated'
 - race condition on import (and create?) ? we get a null failure in
   firestore rules when we try to observe the list, but the list is imported
@@ -36,6 +35,19 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - cleaner app handling when 'add editor' fails on the server in any way
 - cleaner handling when user declines to login via Google or login fails
 - app disallows sharing with improperly formatted email address
+- in list selector indicate owner for lists shared with user
+- prevent user from creating list that duplicates name of a list they
+  own. ok to duplicate name of list shared with them.  user owns first
+  followed by shared lists; sort those by owner email
+- display name for users (and use that if available in place of email
+  for list sorting; show email in UI as 'display name' when display
+  name is unset)
+- release on f-droid
+- use app check
+- release on Play Store
+- initial launch is buggy: sometimes get permission denied first time
+  around, have to restart; sometimes get two 'Groceries' lists
+- deploy cloud function & firestore.rules
 - many things from ourshoppinglist-handoff.md
 - autocomplete in add
   - basic (system-provided)
@@ -72,6 +84,14 @@ These aspects might never be implemented
 - internationalization
 - accessibility beyond what we get for free
 - clean up orphaned or abandoned state in Firestore
+- "semantic conflict detection" and "semantic undo/redo pruning" -- see field-level pruning in conflict-detection-design.md
+- write "bring your own google cloud project" instructions:
+  - for all functions (e.g. is for addEditor) [this is fine b/c we only use Google as auth provider]:
+    - gcloud --project ourgrocerylist functions remove-invoker-policy-binding deleteList --region=us-west1   --member="allUsers"
+	- gcloud --project ourgrocerylist functions add-invoker-policy-binding deleteList --region=us-west1   --member="allAuthenticatedUsers"
+	- gcloud run services get-iam-policy projects/ourgrocerylist/locations/us-west1/services/deletelist
+- write terraform etc. to bootstrap cloud project
+
 These aspects will almost certainly never be implemented.
 - Vestiges of obsolete design
   - Proxying mutations through a cloud function, along with a request queue. 

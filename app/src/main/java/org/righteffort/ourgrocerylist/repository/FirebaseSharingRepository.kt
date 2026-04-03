@@ -4,11 +4,12 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import com.google.firebase.functions.functions
 import kotlinx.coroutines.tasks.await
+import org.righteffort.ourgrocerylist.appFunctions
 
 class FirebaseSharingRepository(
     private val ownerEmail: () -> String? = { Firebase.auth.currentUser?.email },
     private val callAddEditor: suspend (listId: String, email: String) -> Unit = { lId, e ->
-        Firebase.functions.getHttpsCallable("addEditor")
+        Firebase.appFunctions.getHttpsCallable("addEditor")
             .call(mapOf("listId" to lId, "editorEmail" to e))
             .await()
     },

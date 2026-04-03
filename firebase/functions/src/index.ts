@@ -6,7 +6,7 @@ import { addEditorCore } from "./addEditorCore.js";
 import { deleteListCore } from "./deleteListCore.js";
 
 admin.initializeApp();
-setGlobalOptions({ maxInstances: 10 });
+setGlobalOptions({ region: "us-west1", maxInstances: 10 });  // TODO: Don't hardcode
 
 export const deleteList = onCall(async (request) => {
   console.log(`deleteList(${request.data})`);
