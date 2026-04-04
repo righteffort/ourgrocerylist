@@ -1,4 +1,5 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase.
+- sits in a fast fail loop if unable to create initial list, no backoff at all
 - check that https://console.cloud.google.com/run/detail/us-west1/deletelist/security?project=ourgrocerylist doesn't say public access
 - delete list says 'unauthenticated'
 - race condition on import (and create?) ? we get a null failure in
@@ -49,7 +50,7 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - initial launch is buggy: sometimes get permission denied first time
   around, have to restart; sometimes get two 'Groceries' lists
 - deploy cloud function & firestore.rules
-- many things from ourshoppinglist-handoff.md
+- many things from ourgrocerylist-handoff.md
 - autocomplete in add
   - basic (system-provided)
   - assist user to find exist checked items
@@ -70,6 +71,7 @@ These are hygiene issues that may have been missed
 - review for garbage unit tests (e.g. that just restate the implementation w/mocks instead of the effects)
 
 These aspects might never be implemented
+- integration tests add test users to firestore whitelist, though realistically that means editing the string form of the rules one way or another
 - user-selected CSV import headers
 - detection of conflicts between mutations and deletes, presumably involving tombstones
 - server-side validation of client-provided fingerprints 
