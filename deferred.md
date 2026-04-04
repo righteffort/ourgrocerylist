@@ -42,6 +42,7 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - display name for users (and use that if available in place of email
   for list sorting; show email in UI as 'display name' when display
   name is unset)
+- customizable display name for self
 - release on f-droid
 - use app check
 - release on Play Store

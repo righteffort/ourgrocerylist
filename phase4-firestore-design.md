@@ -8,9 +8,8 @@ This document describes the design for integrating Firebase Firestore
 and Cloud Functions into the Android shopping list app. The existing
 architecture (Command pattern, Repository interface, UndoRedoManager,
 ViewModel) is unchanged. The additions are a new Repository
-implementation backed by Firestore, a Cloud Function that gates all
-Firestore mutations (represented in the client as Commands), a queue
-of pending Commands, and the Firebase initialization plumbing.
+implementation backed by Firestore, and the Firebase initialization
+plumbing.
 
 The section numbering below may have gaps, that is an artifact of past
 edits and is safe to ignore.
@@ -127,9 +126,9 @@ Document-to-model mapping:
 DocumentSnapshot → ShoppingItem(
     id = document.id,
     fields = ItemFields(
-        name = getString("name"),
-        quantity = getDouble("quantity"),
-        checked = getBoolean("checked")
+        name = getString("fields.name"),
+        quantity = getDouble("fields.quantity"),
+        checked = getBoolean("fields.checked")
     )
 )
 ```
@@ -148,7 +147,7 @@ Because `Command.reverse()` naturally carries the correct field snapshots, undo 
 
 A stable, per-device identifier used to route conflict notifications
 to the correct client. Once we add multi-user support, a single user
-may have multiple devices, so this is `clientId:userId` is a `*:1`
+may have multiple devices, so `clientId:userId` is a `*:1`
 relationship.
 
 ### Generation and persistence

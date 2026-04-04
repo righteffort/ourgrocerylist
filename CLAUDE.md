@@ -18,7 +18,7 @@ app/src/main/java/org/righteffort/ourgrocerylist/
 ## Architecture layers (no skipping)
 
 1. **Model** — pure data classes, zero Android dependencies
-2. **Repository** — interface + implementations. Fake for now, Firestore later.
+2. **Repository** — interface + implementations. Firestore.
 3. **UndoRedoManager** — in-memory undo/redo stacks; DataStore persistence deferred
 4. **ViewModel** — translates intents to Commands, sorts/splits items into UiState
 5. **Compose UI** — pure function of UiState, emits callbacks upward
@@ -40,7 +40,7 @@ Phase 3. Add, edit, delete, check/uncheck items. Edit dialog with add-mode and e
 
 - Never swallow errors. Logging and continuing is also unacceptable. If nothing else, bubble the exception to the top level of the app, and surface a dialog to the user and log the problem.
 - Do not compromise strong typechecking (e.g. by using typescript syntax, overly permissive casts in any language)
-- `ShoppingItem` uses composition: `ItemFields` (user-editable: name, quantity, checked) + `id` (identity). No conflict metadata in the app model — `fingerprint`, `expectedFingerprint`, `previousFields`, `clientId` live only on the Firestore document. The repository maps them on write and strips them on read.
+- `ShoppingItem` uses composition: `ItemFields` (user-editable: name, quantity, checked) + `id` (identity). No conflict metadata in the app model — `fingerprint`, `expectedFingerprint`, `baseFields`, `clientId` live only on the Firestore document. The repository maps them on write and strips them on read.
 - `EditItem` command takes `newFields: ItemFields`, not individual field parameters.
 - The implementation should avoid code that enumerates user-editable fields, in order to minimize the locations that need to change when future user-editable are added (e.g. units, category).
 - The edit dialog composable has no concept of mode — it renders `ItemDialogState`. Add-vs-edit branching lives in the ViewModel's construction of `ItemDialogState`.

@@ -72,11 +72,11 @@ The Cloud Function performs a single string comparison. It never computes a fing
 |---|---|---|
 | `change.before.fields` | Previous document state | What was actually there before this write |
 | `change.before.fingerprint` | Previous document state | Fingerprint of the previous state (compared against `baseFingerprint`) |
-| `change.before.previousFields` | Previous document state | What was there before the *previous* write |
+| `change.before.baseFields` | Previous document state | What was there before the *previous* write |
 | `change.before.clientId` | Previous document state | Who made the previous write |
 | `change.after.fields` | New document state | What the current writer changed it to |
 | `change.after.fingerprint` | New document state | Fingerprint of the new state |
-| `change.after.previousFields` | New document state | What the writer saw before editing (same as their local state) |
+| `change.after.baseFields` | New document state | What the writer saw before editing (same as their local state) |
 | `change.after.baseFingerprint` | New document state | Fingerprint the writer expected to be current — compared against `change.before.fingerprint` |
 | `change.after.clientId` | New document state | Who made this write |
 

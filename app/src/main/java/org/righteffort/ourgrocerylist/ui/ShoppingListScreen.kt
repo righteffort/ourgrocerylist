@@ -60,6 +60,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.righteffort.ourgrocerylist.model.ListMetadata
 import org.righteffort.ourgrocerylist.model.ShoppingItem
+import org.righteffort.ourgrocerylist.util.formatQuantityNumber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

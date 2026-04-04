@@ -45,7 +45,8 @@ service cloud.firestore {
       allow read: if isAllowedUser() && request.auth != null && (resource == null || hasAccess());
       allow update: if isAllowedUser() && isOwner();
       allow delete: if isAllowedUser() && isOwner();
-      allow create: if isAllowedUser() && request.auth != null;
+      allow create: if isAllowedUser() && request.auth != null
+                        && request.resource.data.owner == request.auth.uid;
 
       // Items subcollection
       match /items/{itemId} {

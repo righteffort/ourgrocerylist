@@ -28,6 +28,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.righteffort.ourgrocerylist.model.ItemFields
+import org.righteffort.ourgrocerylist.util.formatQuantityNumber
+import org.righteffort.ourgrocerylist.util.isValidQuantityText
+import org.righteffort.ourgrocerylist.util.toDoubleOrNullLocale
 
 @Composable
 fun ItemDialog(state: ItemDialogState) {
@@ -76,7 +79,7 @@ fun ItemDialog(state: ItemDialogState) {
                         value = quantityText,
                         onValueChange = { text ->
                             quantityText = text
-                            text.toDoubleOrNull()?.let {
+                            text.toDoubleOrNullLocale()?.let {
                                 if (it > 0) fields = fields.copy(quantity = it)
                             }
                         },
@@ -109,7 +112,7 @@ fun ItemDialog(state: ItemDialogState) {
         confirmButton = {
             Button(
                 onClick = { state.onSave(fields) },
-                enabled = fields.name.isNotBlank(),
+                enabled = fields.name.isNotBlank() && isValidQuantityText(quantityText),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                 ),

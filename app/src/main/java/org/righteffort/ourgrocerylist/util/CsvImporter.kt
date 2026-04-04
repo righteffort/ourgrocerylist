@@ -81,7 +81,7 @@ object CsvImporter {
         if (colIdx == null || colIdx >= record.size()) return 1.0
         val raw = record[colIdx]
         if (raw.isBlank()) return 1.0
-        val d = raw.toDoubleOrNull()
+        val d = raw.toDoubleOrNullLocale()
             ?: throw CsvParseException("Row $rowNumber: invalid quantity \"$raw\"")
         if (d <= 0) throw CsvParseException("Row $rowNumber: quantity must be positive, got \"$raw\"")
         return d

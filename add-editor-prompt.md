@@ -12,7 +12,7 @@ Obey instructions in CLAUDE.md
 
 1. **Cloud Function**. Implement a deployable cloud function in typescript in the existing firebase/functions npm package. It is fine to replace src/index.ts. The function will accept a JSON object with the list id and the new editor email address. It should validate that the caller's uid matches the owner uid for the list. Using the Firebase Admin SDK it calls `admin.auth().getUserByEmail` to resolve the new editor's email address to a uid. If the call succeeds, it atomically appends to the editors array for the list using `FieldValue.arrayUnion`
 
-2. **UI**. Add an overlow menu to the top bar with a single 'share list' entry that prompts for the new editor (with a cancel option of course). This will invoke the cloud function and report the result back to the user.
+2. **UI**. Add an ovefrlow menu to the top bar with a single 'share list' entry that prompts for the new editor (with a cancel option of course). This will invoke the cloud function and report the result back to the user.
 
 Questions?
 
