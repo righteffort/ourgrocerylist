@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
                 signInAndInitialize(app)
             } catch (e: Exception) {
                 Log.e(TAG, "Auth/list initialization failed", e)
-                app._initErrors.emit(e.message ?: "Initialization failed")
+                app.internalInitErrors.emit(e.message ?: "Initialization failed")
             }
         }
 

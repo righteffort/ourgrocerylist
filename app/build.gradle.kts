@@ -16,12 +16,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "org.righteffort.ourgrocerylist"
-    compileSdk {
-        // https://developer.android.com/tools/releases/platforms
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 36  // https://developer.android.com/tools/releases/platforms
     defaultConfig {
         applicationId = "org.righteffort.ourgrocerylist"
         minSdk = 31  // Android 12
@@ -82,7 +77,6 @@ android {
     testOptions {
         unitTests {
             all { it.useJUnitPlatform() }
-            isReturnDefaultValues = true
         }
     }
 }

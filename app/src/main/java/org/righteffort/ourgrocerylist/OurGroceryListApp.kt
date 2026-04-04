@@ -34,8 +34,8 @@ class OurGroceryListApp : Application() {
 
     // replay=1 so the ViewModel sees this error even if it subscribes after emission.
     // internal so MainActivity can emit errors from the auth/init coroutine it owns.
-    internal val _initErrors = MutableSharedFlow<String>(replay = 1)
-    val initErrors: SharedFlow<String> = _initErrors.asSharedFlow()
+    internal val internalInitErrors = MutableSharedFlow<String>(replay = 1)
+    val initErrors: SharedFlow<String> = internalInitErrors.asSharedFlow()
 
     // Set by MainActivity after auth succeeds. Drives observeLists() in FirestoreListRepository.
     internal val _currentUser = MutableStateFlow<User?>(null)
