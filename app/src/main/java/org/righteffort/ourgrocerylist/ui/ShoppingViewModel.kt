@@ -57,6 +57,16 @@ class ShoppingViewModel(
 
     private val _currentListId = MutableStateFlow<String?>(null)
 
+    // Set by addList/importListFromCsv; cleared by init block once observeLists confirms the
+    // list is Firestore-visible. This defers setting _currentListId (and thus starting
+    // observeItems) until the list document is guaranteed to exist from the rules engine's
+    // perspective.
+    private val _pendingSelectListId = MutableStateFlow<String?>(null)
+
+    // Lists deleted optimistically (cloud function returned) before observeLists confirms.
+    // Filtered from uiState.lists immediately so the picker doesn't show stale entries.
+    private val _optimisticallyDeletedListIds = MutableStateFlow<Set<String>>(emptySet())
+
     private val _dialogState = MutableStateFlow<ItemDialogState?>(null)
     val dialogState: StateFlow<ItemDialogState?> = _dialogState.asStateFlow()
 
@@ -111,6 +121,12 @@ class ShoppingViewModel(
                         listResources.remove(id)
                     }
 
+                    // Clean up optimistic deletions confirmed by observeLists.
+                    val confirmedDeleted = _optimisticallyDeletedListIds.value.filter { it !in newIds }
+                    if (confirmedDeleted.isNotEmpty()) {
+                        _optimisticallyDeletedListIds.value -= confirmedDeleted.toSet()
+                    }
+
                     // If no lists exist (new user or all lists deleted), recreate the default.
                     if (lists.isEmpty()) {
                         val user = currentUserFlow.value
@@ -121,6 +137,16 @@ class ShoppingViewModel(
                                 logAndEmitFatalError("Failed to create initial list", e)
                             }
                         }
+                        return@collect
+                    }
+
+                    // If a list creation is pending and now visible, navigate to it.
+                    // Doing this here (rather than eagerly in addList/importListFromCsv) ensures
+                    // observeItems is not started until the list document is Firestore-visible.
+                    val pending = _pendingSelectListId.value
+                    if (pending != null && pending in newIds) {
+                        _pendingSelectListId.value = null
+                        _currentListId.value = pending
                         return@collect
                     }
 
@@ -165,8 +191,10 @@ class ShoppingViewModel(
                 logAndEmitFatalError("Failed to observe lists in uiState", e)
                 emit(emptyList())
             },
-    ) { (listId, items, undoState), lists ->
-        val currentList = lists.find { it.id == listId }
+        _optimisticallyDeletedListIds,
+    ) { (listId, items, undoState), lists, deletedIds ->
+        val filteredLists = lists.filter { it.id !in deletedIds }
+        val currentList = filteredLists.find { it.id == listId }
         val (checked, unchecked) = items.partition { it.fields.checked }
         UiState(
             uncheckedItems = unchecked.sortedWith(ITEM_COMPARATOR),
@@ -174,7 +202,7 @@ class ShoppingViewModel(
             undoAvailable = undoState.undoAvailable,
             redoAvailable = undoState.redoAvailable,
             currentListName = currentList?.name ?: "",
-            lists = lists,
+            lists = filteredLists,
             isOwner = currentList?.isOwner ?: false,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState())
@@ -284,9 +312,10 @@ class ShoppingViewModel(
         viewModelScope.launch {
             try {
                 val id = listRepository.createList(user, trimmed)
-                // Eagerly create resources so the switch can happen before observeLists() fires.
+                // Pre-warm resources, but defer _currentListId until observeLists() confirms the
+                // list document is Firestore-visible (avoids observeItems security-rules race).
                 getOrCreateResources(id)
-                _currentListId.value = id
+                _pendingSelectListId.value = id
             } catch (e: Exception) {
                 logAndEmitError("Failed to create list", e)
             }
@@ -311,7 +340,16 @@ class ShoppingViewModel(
         viewModelScope.launch {
             try {
                 listRepository.deleteList(listId)
-                // observeLists() will emit without this list; init block selects the next one.
+                // Eagerly hide the deleted list while observeLists() propagates. Without this,
+                // the list persists in the picker until the Firestore snapshot fires.
+                _optimisticallyDeletedListIds.value += listId
+                val remaining = uiState.value.lists.filter { it.id != listId }
+                if (remaining.isNotEmpty()) {
+                    val next = remaining.firstOrNull { it.isOwner } ?: remaining.first()
+                    _currentListId.value = next.id
+                }
+                // If remaining is empty, _currentListId stays as-is; init block will create the
+                // default list and navigate when observeLists fires with an empty result.
             } catch (e: Exception) {
                 logAndEmitError("Failed to delete list", e)
             }
@@ -363,7 +401,9 @@ class ShoppingViewModel(
                 for (fields in items) {
                     repo.apply(Command.AddItem(ShoppingItem(id = repo.newItemId(), fields = fields)))
                 }
-                _currentListId.value = listId
+                // Defer navigation until observeLists() confirms the list is Firestore-visible,
+                // so observeItems doesn't start before the security rules can see the list doc.
+                _pendingSelectListId.value = listId
                 dismissImportListDialog()
             } catch (e: Exception) {
                 logAndEmitError("Failed to import list", e)
