@@ -104,7 +104,24 @@ dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.bundles.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
+    testRuntimeOnly(libs.junit.vintage.engine)
     testImplementation(libs.kotlinx.coroutines.test)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+    testImplementation(libs.androidx.junit)
+    testImplementation(libs.androidx.espresso.core)
+    testImplementation(libs.bundles.integration.test)
+}
+
+// This hack couples unit vs. integration with junit5 vs. junit4, but it works.
+// TODO: maybe someday separate build.gradle.kts files
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform {
+        // If we pass the flag, run only JUnit 4 (Robolectric Integration)
+        if (project.hasProperty("runIntegration")) {
+            includeEngines("junit-vintage")
+        }
+        // Otherwise, default to running only JUnit 5 (Unit Tests)
+        else {
+            includeEngines("junit-jupiter")
+        }
+    }
 }
