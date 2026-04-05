@@ -1,4 +1,7 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase.
+- integration test clearing state
+  - use httpclient for nicer status code check
+  - clearpersistence though i'm not convinced it is necessary
 - sits in a fast fail loop if unable to create initial list, no backoff at all
 - check that https://console.cloud.google.com/run/detail/us-west1/deletelist/security?project=ourgrocerylist doesn't say public access
 - delete list says 'unauthenticated'

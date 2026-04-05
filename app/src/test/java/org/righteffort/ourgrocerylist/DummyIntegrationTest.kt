@@ -1,4 +1,7 @@
-package org.righteffort.ourgrocerylist.integration
+// TODO: maybe move to integration subpackage
+package org.righteffort.ourgrocerylist
+
+import java.net.http.HttpClient
 
 import app.cash.turbine.test
 import com.google.firebase.FirebaseApp
@@ -42,6 +45,7 @@ class SharedListIntegrationTest {
 
     @Test
     fun `always fail`() = runBlocking {
+        val x = HttpClient.newBuilder()
         assertEquals(0, 1)
     }
 
