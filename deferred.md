@@ -1,4 +1,26 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase.
+- nail down ownership model for firebase-related objects and how to
+  support multiple instances of ShoppingViewModel in integration tests.
+  - in theory:
+    - probably need to login -> authToken
+	- probably need to invent clientId
+	- need to make all firestore + functions calls use that authToken
+	- SVM *might* need to plumb that stuff further down but you really hope not.
+  - how it is [all f'ed up with weird injection points]
+    - OurGroceryListApp seems to orchestrate
+	  - OGLA owns Firestore observer, parameterized by User. User becomes non-null when auth completes.
+	  - OGLA owns clientId (set async)
+	  - OGLA owns listRepository which weirdly needs a firestore, the userflow (why?), callDeleteList (very weird)
+	  - OGLA.onCreate is sort of main but just connects to emulators
+	  - BTW I don't see any coordination of state initialization in OGLA. Ok StateFlow<User?> is one piece
+	- MainActivity has a SVM initialized via a factory for DI (some jetpack compose magic)
+    - SVM takes a whole pile of stuff for injection, why so much?
+	  - currentUserFlow: StateFlow<User?>
+	  - a ListRepository
+	  - a ShoppingRepository factory (argument is string)
+	  - a SharingRepository
+	  - appErrors, just for bubbling up errors I think
+	  - seems like it just organically grew over time?
 - integration test clearing state
   - use httpclient for nicer status code check
   - clearpersistence though i'm not convinced it is necessary
