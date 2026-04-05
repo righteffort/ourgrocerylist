@@ -26,7 +26,7 @@ class FirestoreListRepository(
     // Firestore evaluates security rules per result document, so both queries are safe.
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override fun observeLists(): Flow<List<ListMetadata>> = currentUserFlow
-        .filterNotNull()
+        .filterNotNull()  // Becomes not-null when auth completes.
         .flatMapLatest { user ->
             callbackFlow {
                 var ownedDocs: List<DocumentSnapshot> = emptyList()

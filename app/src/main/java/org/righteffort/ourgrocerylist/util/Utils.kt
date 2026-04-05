@@ -3,6 +3,20 @@ package org.righteffort.ourgrocerylist.util
 import java.text.NumberFormat
 import java.text.ParsePosition
 import java.util.Locale
+import com.google.firebase.auth.auth
+import com.google.firebase.firestore.firestore
+import com.google.firebase.functions.functions
+
+import com.google.firebase.Firebase
+
+// Requires `for p in 8080 9099 5001 ; do adb reverse tcp:$p tcp:$p ; done`
+fun setUpFirebaseEmulators() {
+    // 127.0.0.1 because some devices fail to DNS-resolve "localhost"
+    Firebase.auth.useEmulator("127.0.0.1", 9099)
+    Firebase.firestore.useEmulator("127.0.0.1", 8080)
+    Firebase.functions.useEmulator("127.0.0.1", 5001)
+    // TODO: check that someone is listening
+}
 
 fun formatQuantityNumber(quantity: Double): String =
     NumberFormat.getNumberInstance(Locale.getDefault()).apply {

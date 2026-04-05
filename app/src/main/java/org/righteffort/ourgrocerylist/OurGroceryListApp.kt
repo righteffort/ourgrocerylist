@@ -23,6 +23,7 @@ import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.FirebaseSharingRepository
 import org.righteffort.ourgrocerylist.repository.FirestoreListRepository
 import org.righteffort.ourgrocerylist.repository.SharingRepository
+import org.righteffort.ourgrocerylist.util.setUpFirebaseEmulators
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_prefs")
 
@@ -46,9 +47,10 @@ class OurGroceryListApp : Application() {
         if (BuildConfig.USE_FIREBASE_EMULATOR) {
             // Requires `for p in 8080 9099 5001 ; do adb reverse tcp:$p tcp:$p ; done`
             // 127.0.0.1 because some devices fail to DNS-resolve "localhost".
-            Firebase.auth.useEmulator("127.0.0.1", 9099)
-            Firebase.firestore.useEmulator("127.0.0.1", 8080)
-            Firebase.functions.useEmulator("127.0.0.1", 5001)
+            // Firebase.auth.useEmulator("127.0.0.1", 9099)
+            // Firebase.firestore.useEmulator("127.0.0.1", 8080)
+            // Firebase.functions.useEmulator("127.0.0.1", 5001)
+	    setUpFirebaseEmulators()
         }
     }
 
