@@ -16,6 +16,7 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.Companion.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
 import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
@@ -78,9 +79,10 @@ class MainActivity : ComponentActivity() {
         if (BuildConfig.USE_FIREBASE_EMULATOR) {
             try {
                 Firebase.auth.createUserWithEmailAndPassword("test1@test.invalid", "password").await()
-            } catch (e: FirebaseAuthUserCollisionException) {
+            } catch (_: FirebaseAuthUserCollisionException) {
                 // User already exists on the emulator — proceed to sign in.
             }
+	    // TODO: would be nice to have a login screen for manual multi-user tests on devices running against emulators
             Firebase.auth.signInWithEmailAndPassword("test1@test.invalid", "password").await()
         } else {
             val currentUser = Firebase.auth.currentUser
@@ -88,8 +90,9 @@ class MainActivity : ComponentActivity() {
                 signInWithGoogle()
             } else {
                 try {
-                    currentUser.getIdToken(true).await()
-                } catch (e: Exception) {
+                    currentUser.getIdToken(true).await()  // TODO: this seems contrary to the docs
+                } catch (_: FirebaseAuthInvalidUserException) {
+		    // TODO: the comment below doesn't seem to match the statement  `true` above -- getIdToken(true) forces a refresh
                     // Cached credentials are stale or revoked — sign out and re-authenticate.
                     Firebase.auth.signOut()
                     signInWithGoogle()

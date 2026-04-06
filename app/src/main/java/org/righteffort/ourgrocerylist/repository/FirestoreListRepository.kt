@@ -15,10 +15,6 @@ import org.righteffort.ourgrocerylist.model.User
 class FirestoreListRepository(
     private val firestore: FirebaseFirestore,
     private val currentUserFlow: StateFlow<User?>,
-    private val callDeleteList: suspend (listId: String) -> Unit = { listId ->
-        // Populated by OurGroceryListApp with the Firebase Functions callable.
-        throw NotImplementedError("callDeleteList not configured")
-    },
 ) : ListRepository {
 
     // Two parallel Firestore queries: lists owned by the user + lists where user is an editor.
@@ -82,7 +78,7 @@ class FirestoreListRepository(
     }
 
     override suspend fun deleteList(listId: String) {
-        callDeleteList(listId)
+        firestore.document("lists/$listId").delete()
     }
 }
 

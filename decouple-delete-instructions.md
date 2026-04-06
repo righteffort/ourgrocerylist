@@ -1,6 +1,6 @@
 # Decouple list deletion from subcollection cleanup
 
-TODO(human): rip out the bad attempt to fix the deleteList race condition.
+First, re-read CLAUDE.md.
 
 ## Goal
 
@@ -17,8 +17,9 @@ Benefits:
   Task blocks indefinitely while offline (the Task only completes on server
   acknowledgment). Fire-and-forget is correct here; the snapshot listener is
   the source of truth for resulting state.
-- Ownership is already enforced by `firestore.rules` (`allow delete: if
-  isAllowedUser() && isOwner()`), so no server-side ownership check is needed.
+- Ownership is already enforced by `firebase/firestore.rules` (`allow
+  delete: if isAllowedUser() && isOwner()`), so no server-side
+  ownership check is needed and no changes to that file are required.
 
 ## Changes
 
@@ -40,11 +41,13 @@ export const cleanUpDeletedList = onDocumentDeleted(
 );
 ```
 
-`event.data.ref` is a `DocumentReference` to the already-deleted list document.
-`recursiveDelete` finds descendants via a path-pattern query, not by traversing
-from the parent, so it correctly deletes the `items` subcollection (and any
-other subcollections) regardless of whether the parent document exists.
-The redundant delete of the already-absent document is a no-op.
+`event.data.ref` is a `DocumentReference` to the already-deleted list
+document.  The Firebase Admin SDK's implementation of
+`recursiveDelete` finds descendants via a path-pattern query, not by
+traversing from the parent, so it correctly deletes the `items`
+subcollection (and any other subcollections) regardless of whether the
+parent document exists.  The redundant delete of the already-absent
+document is a no-op.
 
 API reference: https://googleapis.dev/nodejs/firestore/latest/Firestore.html#recursiveDelete
 
@@ -80,8 +83,8 @@ Remove the injection of the `callDeleteList` callable when constructing
 
 ## Verification
 
-- Run existing unit tests: `cd firebase/functions && npm test`
 - Confirm `firebase-tools` is no longer imported anywhere in functions source
-- Manually test delete while online: list disappears from picker immediately
-- Manually test delete while offline: list disappears immediately; after
-  reconnection it stays gone (server flushes the queued delete)
+- Confirm unit tests compile: `./gradlew compileLocalDebugUnitTestSources`
+- Human runs existing unit tests and manual visual tests of offline
+  and online list delete
+
