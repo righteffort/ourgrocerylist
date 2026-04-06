@@ -15,9 +15,19 @@ Even though `createList().await()` guarantees the write was server-acknowledged,
 
 ### Fix
 
-Never set `_currentListId` (and thus start `observeItems`) until `observeLists()` has emitted with the new list ID present. This guarantees the list document is visible in Firestore before any listener registers against it.
-
-A new `_pendingSelectListId: MutableStateFlow<String?>` tracks the intended destination. `addList()` and `importListFromCsv()` set it instead of `_currentListId`. The `init` block's `observeLists()` collector checks: when the pending ID appears in `newIds`, it clears `_pendingSelectListId` and sets `_currentListId` — then returns early to prevent the fallback logic from interfering.
+Decouple navigation from `observeItems` startup. `_currentListId` is
+set immediately after `createList()` returns so the UI switches to the
+new list without delay. A separate `_confirmedListIds:
+MutableStateFlow<Set<String>>` is populated by the `init` block's
+`observeLists()` collector each time it fires. In `uiState`, the
+`flatMapLatest` combines `_currentListId` with `_confirmedListIds`: if
+the current list ID is not yet confirmed, it emits an empty-items
+state and suspends via `awaitCancellation()`; when `_confirmedListIds`
+updates to include the ID, `flatMapLatest` cancels the placeholder and
+starts the real `observeItems` Firestore listener. This ensures the
+Firestore rules engine always sees the list document before the items
+listener is registered, while the UI reflects the new list
+immediately.
 
 ---
 

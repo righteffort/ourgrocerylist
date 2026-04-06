@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,11 +59,13 @@ class ShoppingViewModel(
 
     private val _currentListId = MutableStateFlow<String?>(null)
 
-    // Set by addList/importListFromCsv; cleared by init block once observeLists confirms the
-    // list is Firestore-visible. This defers setting _currentListId (and thus starting
-    // observeItems) until the list document is guaranteed to exist from the rules engine's
-    // perspective.
-    private val _pendingSelectListId = MutableStateFlow<String?>(null)
+    // Populated by the init block's observeLists()
+    // collector. observeItems is only started for a list once its ID
+    // appears here, preventing a race between list creation and
+    // observing list mutations. It appears that observing can win the
+    // race resulting in a null error from the rules engine. Maybe.
+    // _currentListId is set immediately for responsive UX.
+    private val _confirmedListIds = MutableStateFlow<Set<String>>(emptySet())
 
     private val _dialogState = MutableStateFlow<ItemDialogState?>(null)
     val dialogState: StateFlow<ItemDialogState?> = _dialogState.asStateFlow()
@@ -117,6 +121,9 @@ class ShoppingViewModel(
                         listResources.remove(id)
                     }
 
+                    // Confirm all currently visible lists so observeItems can start for them.
+                    _confirmedListIds.value = newIds
+
                     // If no lists exist (new user or all lists deleted), recreate the default.
                     if (lists.isEmpty()) {
                         val user = currentUserFlow.value
@@ -127,18 +134,6 @@ class ShoppingViewModel(
                                 logAndEmitFatalError("Failed to create initial list", e)
                             }
                         }
-                        return@collect
-                    }
-
-		    // TODO: This incorrectly assumes navigation in the UI should be coupled to starting observeItems.
-		    //       Deferring switch to this will be a startling UX.
-                    // If a list creation is pending and now visible, navigate to it.
-                    // Doing this here (rather than eagerly in addList/importListFromCsv) ensures
-                    // observeItems is not started until the list document is Firestore-visible.
-                    val pending = _pendingSelectListId.value
-                    if (pending != null && pending in newIds) {
-                        _pendingSelectListId.value = null
-                        _currentListId.value = pending
                         return@collect
                     }
 
@@ -167,16 +162,27 @@ class ShoppingViewModel(
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<UiState> = combine(
-        _currentListId.filterNotNull().flatMapLatest { listId ->
+        combine(_currentListId.filterNotNull(), _confirmedListIds) { listId, confirmed ->
+            listId to confirmed
+        }.flatMapLatest { (listId, confirmed) ->
             val resources = getOrCreateResources(listId)
-            combine(
-                resources.repository.observeItems()
-                    .catch { e ->
-                        logAndEmitFatalError("Failed to observe items", e)
-                        emit(emptyList())
-                    },
-                resources.undoRedoManager.state,
-            ) { items, undoState -> Triple(listId, items, undoState) }
+            if (listId in confirmed) {
+                combine(
+                    resources.repository.observeItems()
+                        .catch { e ->
+                            logAndEmitFatalError("Failed to observe items", e)
+                            emit(emptyList())
+                        },
+                    resources.undoRedoManager.state,
+                ) { items, undoState -> Triple(listId, items, undoState) }
+            } else {
+                // List not yet Firestore-visible; emit empty items and wait.
+                // flatMapLatest will cancel this once _confirmedListIds includes listId.
+                flow {
+                    emit(Triple(listId, emptyList<ShoppingItem>(), resources.undoRedoManager.state.value))
+                    awaitCancellation()
+                }
+            }
         },
         listRepository.observeLists()
             .catch { e ->
@@ -302,10 +308,10 @@ class ShoppingViewModel(
         viewModelScope.launch {
             try {
                 val id = listRepository.createList(user, trimmed)
-                // Pre-warm resources, but defer _currentListId until observeLists() confirms the
-                // list document is Firestore-visible (avoids observeItems security-rules race).
+                // Pre-warm resources and navigate immediately. observeItems startup is gated
+                // on _confirmedListIds, so no security-rules race even with the eager switch.
                 getOrCreateResources(id)
-                _pendingSelectListId.value = id
+                _currentListId.value = id
             } catch (e: Exception) {
                 logAndEmitError("Failed to create list", e)
             }
@@ -382,9 +388,8 @@ class ShoppingViewModel(
                 for (fields in items) {
                     repo.apply(Command.AddItem(ShoppingItem(id = repo.newItemId(), fields = fields)))
                 }
-                // Defer navigation until observeLists() confirms the list is Firestore-visible,
-                // so observeItems doesn't start before the security rules can see the list doc.
-                _pendingSelectListId.value = listId
+                // Navigate immediately; observeItems startup is gated on _confirmedListIds.
+                _currentListId.value = listId
                 dismissImportListDialog()
             } catch (e: Exception) {
                 logAndEmitError("Failed to import list", e)
