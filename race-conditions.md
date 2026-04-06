@@ -29,6 +29,12 @@ A new `_pendingSelectListId: MutableStateFlow<String?>` tracks the intended dest
 
 ### Fix
 
+#### Correct fix
+
+See decouple-delete-instructions.md
+
+#### Abandoned fix
+
 Maintain `_optimisticallyDeletedListIds: MutableStateFlow<Set<String>>`. After `deleteList()` returns:
 1. Add `listId` to `_optimisticallyDeletedListIds`.
 2. Immediately compute the next list from `uiState.value.lists` and update `_currentListId`.

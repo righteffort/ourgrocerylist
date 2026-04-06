@@ -1,4 +1,6 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase.
+- get rid of delayed navigation to new list created when offline --
+  see TODO in ShoppingViewModel.kt
 - nail down ownership model for firebase-related objects and how to
   support multiple instances of ShoppingViewModel in integration tests.
   - in theory:

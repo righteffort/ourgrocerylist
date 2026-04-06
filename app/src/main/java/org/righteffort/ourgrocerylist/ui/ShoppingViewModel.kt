@@ -63,10 +63,6 @@ class ShoppingViewModel(
     // perspective.
     private val _pendingSelectListId = MutableStateFlow<String?>(null)
 
-    // Lists deleted optimistically (cloud function returned) before observeLists confirms.
-    // Filtered from uiState.lists immediately so the picker doesn't show stale entries.
-    private val _optimisticallyDeletedListIds = MutableStateFlow<Set<String>>(emptySet())
-
     private val _dialogState = MutableStateFlow<ItemDialogState?>(null)
     val dialogState: StateFlow<ItemDialogState?> = _dialogState.asStateFlow()
 
@@ -121,12 +117,6 @@ class ShoppingViewModel(
                         listResources.remove(id)
                     }
 
-                    // Clean up optimistic deletions confirmed by observeLists.
-                    val confirmedDeleted = _optimisticallyDeletedListIds.value.filter { it !in newIds }
-                    if (confirmedDeleted.isNotEmpty()) {
-                        _optimisticallyDeletedListIds.value -= confirmedDeleted.toSet()
-                    }
-
                     // If no lists exist (new user or all lists deleted), recreate the default.
                     if (lists.isEmpty()) {
                         val user = currentUserFlow.value
@@ -140,6 +130,8 @@ class ShoppingViewModel(
                         return@collect
                     }
 
+		    // TODO: This incorrectly assumes navigation in the UI should be coupled to starting observeItems.
+		    //       Deferring switch to this will be a startling UX.
                     // If a list creation is pending and now visible, navigate to it.
                     // Doing this here (rather than eagerly in addList/importListFromCsv) ensures
                     // observeItems is not started until the list document is Firestore-visible.
@@ -191,10 +183,8 @@ class ShoppingViewModel(
                 logAndEmitFatalError("Failed to observe lists in uiState", e)
                 emit(emptyList())
             },
-        _optimisticallyDeletedListIds,
-    ) { (listId, items, undoState), lists, deletedIds ->
-        val filteredLists = lists.filter { it.id !in deletedIds }
-        val currentList = filteredLists.find { it.id == listId }
+    ) { (listId, items, undoState), lists ->
+        val currentList = lists.find { it.id == listId }
         val (checked, unchecked) = items.partition { it.fields.checked }
         UiState(
             uncheckedItems = unchecked.sortedWith(ITEM_COMPARATOR),
@@ -202,7 +192,7 @@ class ShoppingViewModel(
             undoAvailable = undoState.undoAvailable,
             redoAvailable = undoState.redoAvailable,
             currentListName = currentList?.name ?: "",
-            lists = filteredLists,
+            lists = lists,
             isOwner = currentList?.isOwner ?: false,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState())
@@ -340,16 +330,7 @@ class ShoppingViewModel(
         viewModelScope.launch {
             try {
                 listRepository.deleteList(listId)
-                // Eagerly hide the deleted list while observeLists() propagates. Without this,
-                // the list persists in the picker until the Firestore snapshot fires.
-                _optimisticallyDeletedListIds.value += listId
-                val remaining = uiState.value.lists.filter { it.id != listId }
-                if (remaining.isNotEmpty()) {
-                    val next = remaining.firstOrNull { it.isOwner } ?: remaining.first()
-                    _currentListId.value = next.id
-                }
-                // If remaining is empty, _currentListId stays as-is; init block will create the
-                // default list and navigate when observeLists fires with an empty result.
+                // observeLists() will emit without this list; init block selects the next one.
             } catch (e: Exception) {
                 logAndEmitError("Failed to delete list", e)
             }
