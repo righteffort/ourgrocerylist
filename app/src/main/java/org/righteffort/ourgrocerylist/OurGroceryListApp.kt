@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.tasks.await
 import org.righteffort.ourgrocerylist.client.ClientIdRepository
 import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.FirebaseSharingRepository
@@ -62,11 +61,6 @@ class OurGroceryListApp : Application() {
         FirestoreListRepository(
             firestore = Firebase.firestore,
             currentUserFlow = _currentUser,
-            callDeleteList = { listId ->
-                Firebase.appFunctions.getHttpsCallable("deleteList")
-                    .call(mapOf("listId" to listId))
-                    .await()
-            },
         )
     }
 

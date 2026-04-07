@@ -15,7 +15,7 @@ function makeDeps(overrides: Partial<AddEditorDeps> = {}): AddEditorDeps {
     getListOwnerUid: async (_listId) => OWNER_UID,
     resolveEmailToUid: async (_email) => EDITOR_UID,
     // TODO: fix!
-    appendEditor: async (_listId, _editor) => {},  // eslint-disable-line @typescript-eslint/no-empty-function
+    appendEditor: async (_listId, _editor) => {}, // eslint-disable-line @typescript-eslint/no-empty-function
     ...overrides,
   };
 }
