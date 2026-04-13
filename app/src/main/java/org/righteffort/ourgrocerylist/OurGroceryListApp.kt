@@ -19,9 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
 import org.righteffort.ourgrocerylist.client.ClientIdRepository
 import org.righteffort.ourgrocerylist.model.User
-import org.righteffort.ourgrocerylist.repository.FirebaseSharingRepository
 import org.righteffort.ourgrocerylist.repository.FirestoreListRepository
-import org.righteffort.ourgrocerylist.repository.SharingRepository
 import org.righteffort.ourgrocerylist.util.setUpFirebaseEmulators
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_prefs")
@@ -64,7 +62,4 @@ class OurGroceryListApp : Application() {
         )
     }
 
-    val sharingRepository: SharingRepository by lazy {
-        FirebaseSharingRepository()
-    }
 }

@@ -1,5 +1,5 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase.
-- read about kotlin firestore sdk regarding state / mutation observer -- is set up "atomic" ? how about when mediated by cache?
+- allowlist in firestore `authorizedUsers` collection of empty documents with email as id, then `function isAuthorized() { return request.auth != null && exists(/databases/$(database)/documents/authorizedUsers/$(request.auth.email)); }`
 - get rid of delayed navigation to new list created when offline --
   see TODO in ShoppingViewModel.kt
 - nail down ownership model for firebase-related objects and how to
@@ -41,15 +41,6 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - persist selected list
 - sensible error handling
 - conflict detection and notification
-- DONE multiple-list support in the code (and hence non-hardcoded list ids
-  in fake repo -- currently the single list has the id "default"
-- DONE acls, authentication, authorization
-  - DONE authentication will simply be through integration of Google Auth into Firestore
-  - DONE "acls" will be simply two fields on each document in the top-level
-    lists collection: owner (the firestore provided user id for the
-    creator of the list) and editors (the user ids that the owner has
-    shared the list with)
-  - DONE authorization will be via firestore security rules
 - email and or in-app notifications with invites to newly shared lists.
   - search for invitee in https://gemini.google.com/app/8aac15be2e66cec4 for some help
 - removing editors; handling new editors who have never signed into
@@ -92,6 +83,7 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - integration tests
 - re-order lists
 - search (all lists? within list? selected lists?)
+- play store
 
 These are hygiene issues that may have been missed
 - review for swallowed errors
@@ -117,10 +109,9 @@ These aspects might never be implemented
 - clean up orphaned or abandoned state in Firestore
 - "semantic conflict detection" and "semantic undo/redo pruning" -- see field-level pruning in conflict-detection-design.md
 - write "bring your own google cloud project" instructions:
-  - for all functions (e.g. is for addEditor) [this is fine b/c we only use Google as auth provider]:
-    - gcloud --project ourgrocerylist functions remove-invoker-policy-binding deleteList --region=us-west1   --member="allUsers"
-	- gcloud --project ourgrocerylist functions add-invoker-policy-binding deleteList --region=us-west1   --member="allAuthenticatedUsers"
-	- gcloud run services get-iam-policy projects/ourgrocerylist/locations/us-west1/services/deletelist
+  - for all functions (e.g. is for emailToUid)
+	- gcloud --project ourgrocerylist functions add-invoker-policy-binding emailToUid --region=us-west1   --member="allUsers"
+	- gcloud run services get-iam-policy projects/ourgrocerylist/locations/us-west1/services/emailtouid
 - write terraform etc. to bootstrap cloud project
 
 These aspects will almost certainly never be implemented.

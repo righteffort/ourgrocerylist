@@ -11,11 +11,30 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.tasks.await
 import org.righteffort.ourgrocerylist.model.ListMetadata
 import org.righteffort.ourgrocerylist.model.User
+import com.google.firebase.Firebase
+import com.google.firebase.functions.FirebaseFunctions
+import org.righteffort.ourgrocerylist.appFunctions
 
 class FirestoreListRepository(
     private val firestore: FirebaseFirestore,
     private val currentUserFlow: StateFlow<User?>,
+    private val callEmailToUid: suspend (String) -> String,
 ) : ListRepository {
+    constructor(
+        firestore: FirebaseFirestore,
+        currentUserFlow: StateFlow<User?>,
+        functions: FirebaseFunctions = Firebase.appFunctions,
+    ) : this(
+        firestore = firestore,
+        currentUserFlow = currentUserFlow,
+        callEmailToUid = { email ->
+            functions.getHttpsCallable("emailToUid")
+                .call(mapOf("email" to email))
+                .await()
+                .data as String
+        },
+    )
+
 
     // Two parallel Firestore queries: lists owned by the user + lists where user is an editor.
     // They are merged client-side and sorted: owned first (alphabetically), then editor (alphabetically).
@@ -79,6 +98,27 @@ class FirestoreListRepository(
 
     override suspend fun deleteList(listId: String) {
         firestore.document("lists/$listId").delete()
+    }
+
+    override suspend fun addEditor(listId: String, email: String) {
+        val uid = callEmailToUid(email)
+        val ref = firestore.document("lists/$listId")
+        firestore.runTransaction { transaction ->
+            val doc = transaction.get(ref)
+            val data = checkNotNull(doc.data) { "List $listId not found" }
+            val ownerEmail = (data["owner"] as? Map<*, *>)?.get("email") as? String
+                ?: error("List $listId has malformed owner field")
+            if (email.equals(ownerEmail, ignoreCase = true)) {
+                throw IllegalArgumentException("The list owner cannot be added as an editor")
+            }
+            val editors = data["editors"] as? Map<*, *>
+                ?: error("List $listId has malformed editors field")
+            if (editors.containsKey(uid)) {
+                throw IllegalArgumentException("$email is already an editor of this list")
+            }
+            transaction.update(ref, "editors.$uid", mapOf("email" to email))
+            null
+        }.await()
     }
 }
 

@@ -9,6 +9,7 @@ import java.util.UUID
 
 class FakeListRepository(
     initialLists: List<ListMetadata> = emptyList(),
+    private val addEditorError: Exception? = null,
 ) : ListRepository {
 
     private val _lists = MutableStateFlow(initialLists)
@@ -27,5 +28,9 @@ class FakeListRepository(
 
     override suspend fun deleteList(listId: String) {
         _lists.value = _lists.value.filter { it.id != listId }
+    }
+
+    override suspend fun addEditor(listId: String, email: String) {
+        if (addEditorError != null) throw addEditorError
     }
 }

@@ -9,4 +9,5 @@ interface ListRepository {
     suspend fun createList(owner: User, name: String): String
     suspend fun renameList(listId: String, name: String)
     suspend fun deleteList(listId: String)
+    suspend fun addEditor(listId: String, email: String)
 }

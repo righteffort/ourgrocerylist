@@ -48,7 +48,6 @@ class MainActivity : ComponentActivity() {
                             clientId = app.clientId,
                         )
                     },
-                    sharingRepository = app.sharingRepository,
                     appErrors = app.initErrors,
                 )
             }

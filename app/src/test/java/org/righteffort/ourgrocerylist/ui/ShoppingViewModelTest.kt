@@ -21,16 +21,8 @@ import org.righteffort.ourgrocerylist.model.ListMetadata
 import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.FakeListRepository
 import org.righteffort.ourgrocerylist.repository.FakeShoppingRepository
-import org.righteffort.ourgrocerylist.repository.SharingRepository
-
 private val TEST_USER = User(uid = "test-uid", email = "test@test.com")
 private const val LIST_ID = "list-1"
-
-private class FakeSharingRepository(private val error: Exception? = null) : SharingRepository {
-    override suspend fun addEditor(listId: String, email: String) {
-        if (error != null) throw error
-    }
-}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ShoppingViewModelTest {
@@ -41,15 +33,14 @@ class ShoppingViewModelTest {
     private lateinit var fakeListRepo: FakeListRepository
 
     private fun makeViewModel(
-        sharingRepository: SharingRepository = FakeSharingRepository(),
         initialLists: List<ListMetadata> = listOf(ListMetadata(LIST_ID, "Groceries", isOwner = true)),
+        addEditorError: Exception? = null,
     ): ShoppingViewModel {
-        fakeListRepo = FakeListRepository(initialLists)
+        fakeListRepo = FakeListRepository(initialLists, addEditorError)
         return ShoppingViewModel(
             currentUserFlow = MutableStateFlow(TEST_USER),
             listRepository = fakeListRepo,
             repositoryFactory = { FakeShoppingRepository() },
-            sharingRepository = sharingRepository,
         ).also { vm ->
             collectScope.launch { vm.uiState.collect {} }
         }
@@ -258,7 +249,7 @@ class ShoppingViewModelTest {
 
     @Test
     fun `shareList on success dismisses dialog and emits 'Editor added'`() {
-        val vm = makeViewModel(sharingRepository = FakeSharingRepository())
+        val vm = makeViewModel()
         vm.openShareListDialog()
         val messages = mutableListOf<String>()
         collectScope.launch { vm.errors.collect { messages.add(it) } }
@@ -269,7 +260,7 @@ class ShoppingViewModelTest {
 
     @Test
     fun `shareList on failure keeps dialog open with error message`() {
-        val vm = makeViewModel(sharingRepository = FakeSharingRepository(error = Exception("user not found")))
+        val vm = makeViewModel(addEditorError = Exception("user not found"))
         vm.openShareListDialog()
         vm.shareList("editor@example.com")
         assertEquals("user not found", vm.shareListDialogState.value?.errorMessage)

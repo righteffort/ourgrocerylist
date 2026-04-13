@@ -29,7 +29,6 @@ import org.righteffort.ourgrocerylist.model.ShoppingItem
 import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.ListRepository
 import org.righteffort.ourgrocerylist.repository.ShoppingRepository
-import org.righteffort.ourgrocerylist.repository.SharingRepository
 import org.righteffort.ourgrocerylist.undo.UndoRedoManager
 import org.righteffort.ourgrocerylist.util.CsvImporter
 import org.righteffort.ourgrocerylist.util.CsvParseException
@@ -41,9 +40,6 @@ class ShoppingViewModel(
     private val currentUserFlow: StateFlow<User?>,
     private val listRepository: ListRepository,
     private val repositoryFactory: (listId: String) -> ShoppingRepository,
-    private val sharingRepository: SharingRepository = object : SharingRepository {
-        override suspend fun addEditor(listId: String, email: String) = Unit
-    },
     appErrors: Flow<String> = emptyFlow(),
 ) : ViewModel() {
 
@@ -419,7 +415,7 @@ class ShoppingViewModel(
         val listId = _currentListId.value ?: return
         viewModelScope.launch {
             try {
-                sharingRepository.addEditor(listId, email)
+                listRepository.addEditor(listId, email)
                 _shareListDialogState.value = null
                 _errors.tryEmit("Editor added")
             } catch (e: Exception) {

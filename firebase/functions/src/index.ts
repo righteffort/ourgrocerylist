@@ -3,7 +3,6 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentDeleted } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
-import { addEditorCore } from "./addEditorCore.js";
 
 admin.initializeApp();
 setGlobalOptions({ region: "us-west1", maxInstances: 10 }); // TODO: Don't hardcode
@@ -16,49 +15,14 @@ export const cleanUpDeletedList = onDocumentDeleted(
   },
 );
 
-export const addEditor = onCall(async (request) => {
-  console.log(`addEditor(${request.data})`);
-  const { listId, editorEmail } = request.data;
+export const emailToUid = onCall(async (request) => {
+  const { email } = request.data;
   try {
-    await addEditorCore(
-      {
-        getListOwnerUid: async (id) => {
-          const doc = await admin.firestore().collection("lists").doc(id).get();
-          if (!doc.exists) return undefined;
-          const uid = doc.data()?.["owner"]?.["uid"];
-          return typeof uid === "string" ? uid : undefined;
-        },
-        resolveEmailToUid: async (email) => {
-          return (await admin.auth().getUserByEmail(email)).uid;
-        },
-        appendEditor: async (id, editor) => {
-          const listRef = admin.firestore().collection("lists").doc(id);
-          await admin.firestore().runTransaction(async (transaction) => {
-            const doc = await transaction.get(listRef);
-            const editors = (doc.data()?.["editors"] ?? {}) as Record<
-              string,
-              unknown
-            >;
-            if (editor.uid in editors) {
-              throw Object.assign(
-                new Error("Editor already added to this list"),
-                { code: "already-exists" },
-              );
-            }
-            transaction.update(listRef, {
-              [`editors.${editor.uid}`]: { email: editor.email },
-            });
-          });
-        },
-      },
-      request.auth,
-      listId,
-      editorEmail,
-    );
+    return (await admin.auth().getUserByEmail(email)).uid;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.log(`Caught exception ${msg}`);
-    if (e instanceof HttpsError) throw e;
-    throw new HttpsError("internal", msg);
+    if ((e as { code?: string }).code === "auth/user-not-found") {
+      throw new HttpsError("not-found", `No account found for ${email}`);
+    }
+    throw e;
   }
 });

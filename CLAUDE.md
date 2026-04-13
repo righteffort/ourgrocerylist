@@ -44,7 +44,12 @@ List sharing across users & devices implemented via Firestore; last-writer wins.
 
 ## Key design and implementation rules
 
-- Never swallow errors. Logging and continuing is also unacceptable. If nothing else, bubble the exception to the top level of the app, and surface a dialog to the user and log the problem.
+- Never swallow errors, such as
+  - catch blocks that are empty, log-and-continue, or rethrow a weaker type
+  - ?. chains or ?: default fallbacks on data that must be present — if it's absent, that's an error, not a null
+  - as? casts on data that must be a particular type — a failed cast should throw, not silently produce null
+  - conditional checks gated on if (x != null) where x being null indicates a bug rather than a normal case
+  If nothing else, bubble the exception to the top level of the app, surface a dialog to the user, and log the problem.
 - Do not compromise strong typechecking (e.g. by using typescript syntax, overly permissive casts in any language, forced casts, risky non-null assertions)
 - The implementation should avoid code that enumerates user-editable fields, in order to minimize the locations that need to change when future user-editable are added (e.g. units, category).
 - The edit dialog composable has no concept of mode — it renders `ItemDialogState`. Add-vs-edit branching lives in the ViewModel's construction of `ItemDialogState`.

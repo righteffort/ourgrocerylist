@@ -28,10 +28,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.model.User
-import org.righteffort.ourgrocerylist.repository.FirebaseSharingRepository
 import org.righteffort.ourgrocerylist.repository.FirestoreListRepository
 import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
-import org.righteffort.ourgrocerylist.repository.SharingRepository
 import org.righteffort.ourgrocerylist.ui.ShoppingViewModel
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -76,11 +74,7 @@ class SharedListIntegrationTest {
             .setApiKey("test-api-key")
             .build()
 
-        setupUser(userA, options) { app ->
-            FirebaseSharingRepository(
-                ownerEmail = { userA.user.email },
-            )
-        }
+        setupUser(userA, options)
         setupUser(userB, options)
 
         // Share User A's list with User B through the ViewModel (→ Functions emulator).
@@ -151,7 +145,6 @@ class SharedListIntegrationTest {
     private suspend fun setupUser(
         testUser: TestUser,
         options: FirebaseOptions,
-        sharingRepoFactory: ((FirebaseApp) -> SharingRepository)? = null,
     ) {
         // TODO: why in the world do we need this???  Maybe for separate apps?
         testUser.app = FirebaseApp.initializeApp(RuntimeEnvironment.getApplication(), options, testUser.appName)
@@ -162,10 +155,6 @@ class SharedListIntegrationTest {
             listRepository = FirestoreListRepository(Firebase.firestore, userFlow),
             repositoryFactory = { listId ->
                 FirestoreShoppingRepository(Firebase.firestore, listId, clientId = UUID.randomUUID().toString())
-            },
-	    // TODO: wtf is this noise?
-            sharingRepository = sharingRepoFactory?.invoke(testUser.app) ?: object : SharingRepository {
-                override suspend fun addEditor(listId: String, email: String) = Unit
             },
         )
         withTimeout(15.seconds) {
