@@ -1,61 +1,101 @@
 rules_version = '2';
 
+// TODO: tidy up most or all of the debug calls.
+
 service cloud.firestore {
   match /databases/{database}/documents {
     match /lists/{listId} {
+      function debug(x) { return x; }  // Comment out if we want debug output in dev
+
       // Remove when we want to make public
       function isAllowedUser() {
-        return request.auth != null
-            && request.auth.token.email in ['tromer@gmail.com',
-                                            'sbromer@gmail.com',
-                                            'thr.notes@gmail.com',
-                                            'test1@test.invalid',
-                                            'test2@test.invalid'
-                                           ];
+        let _ = debug("isAllowedUser " + request.method + " " + string(request.path) + " " + (request.auth == null ? "null" : request.auth.token.email));
+        let result =
+            request.auth != null &&
+            request.auth.token.email in ['tromer@gmail.com',
+                                         'sbromer@gmail.com',
+                                         'thr.notes@gmail.com',
+                                         'test1@test.invalid',
+                                         'test2@test.invalid'
+                                        ];
+        return (debug("isAllowedUser ").size() >= 0) && debug(result);
       }
 
       function isOwner() {
-        return request.auth != null
-            && resource != null
-            && resource.data.owner.uid == request.auth.uid;
+        let _0 = debug("hello isOwner 0!");
+        let _1 = debug(listId);
+        let _2 = debug("hello isOwner 2!");
+        let _3 = debug(get(/databases/$(database)/documents/lists/$(listId)).data);
+        let _4 = debug("hello isOwner 4!");
+        let _5 = debug(resource.data);
+        let _6 = debug("hello isOwner 6!");
+        let result =
+            (debug("isOwner " + request.method + " " + string(request.path) + " " + (request.auth == null ? "null" : request.auth.token.email)).size() >= 0) &&
+            request.auth != null &&
+            resource != null &&
+            debug(resource.data.owner.uid) == request.auth.uid;
+        return (debug("isOwner ").size() >= 0) && debug(result);
       }
 
       function isEditor() {
-        return request.auth != null
-            && resource != null
-            && resource.data.editors != null
-            && request.auth.uid in resource.data.editors;
+        let result =
+            (debug("isEditor " + request.method + " " + string(request.path) + " " + (request.auth == null ? "null" : request.auth.token. email)).size() >= 0) &&
+            request.auth != null &&
+            resource != null &&
+            debug(resource.data.editors) != null &&
+            request.auth.uid in resource.data.editors;
+        return (debug("isEditor ").size() >= 0) && debug(result);
       }
 
       function hasAccess() {
-        return isOwner() || isEditor();
+        let result =
+            (debug("hasAccess " + request.method + " " + string(request.path) + " " + (request.auth == null ? "null" : request.auth.token.email)).size() >= 0) &&
+            (isOwner() || isEditor());
+        return (debug("hasAccess ").size() >= 0) && debug(result);
       }
 
       function hasAccessViaList() {
+        // The get call is required to get the ACLs on the list --
+        // resource.data would be the item itself.
         let data = get(/databases/$(database)/documents/lists/$(listId)).data;
-        return request.auth != null
-            && data != null
-            && (request.auth.uid == data.owner.uid
-                || (data.editors != null && request.auth.uid in data.editors));
+        let result =
+            (debug("hasAccessViaList " + request.method + " " + string(request.path) + " " + (request.auth == null ? "null" : request.auth.token.email)).size() >= 0) &&
+            request.auth != null &&
+            data != null &&
+            (debug(request.auth.uid == debug(data.owner.uid))
+                || (debug(data.editors) != null && request.auth.uid in data.editors));
+        let foo = debug("hasAccessViaList result...");
+        let bar = debug(string(result));
+        let food = debug("...hasAccessViaList result");
+        return result;
       }
 
       // List document itself.
       // resource == null means the document doesn't exist; allow authenticated
       // users to read it so ensureListDocument can check existence before creating.
-      allow read: if isAllowedUser() && request.auth != null && (resource == null || hasAccess());
-      allow update: if isAllowedUser() && isOwner();
-      allow delete: if isAllowedUser() && isOwner();
-      allow create: if isAllowedUser() && request.auth != null
-                        && request.resource.data.owner.uid == request.auth.uid;
+      allow read:
+          if (debug(request.method + " " + string(request.path)).size() >= 0)
+              && isAllowedUser()
+              && request.auth != null
+              && (resource == null || hasAccess());  // allow when resource == null for list
+      allow update, delete:
+          if (debug(request.method + " " + string(request.path)).size() >= 0)
+              && debug(isAllowedUser() && isOwner());
+      allow create:
+          if (debug(request.method + " " + string(request.path)).size() >= 0)
+              && debug(isAllowedUser() && request.auth != null && request.resource.data.owner.uid == request.auth.uid);
 
-      // Items subcollection
       match /items/{itemId} {
-        allow read, write: if isAllowedUser() && hasAccessViaList();
+        allow read, write:
+            if (debug(request.method + " " + string(request.path)).size() >= 0)
+                && debug(isAllowedUser() && debug(hasAccessViaList()));
       }
 
       // Notifications subcollection — clients read/delete their own
       match /notifications/{clientId}/pending/{notificationId} {
-        allow read, delete: if isAllowedUser() && hasAccessViaList();
+        allow read, delete:
+            if (debug("read/delete /notifications/" + clientId + "/pending/" + notificationId).size() >= 0)
+                && debug(isAllowedUser() && hasAccessViaList());
         // Only Cloud Function writes notifications
         allow create, update: if false;
       }
