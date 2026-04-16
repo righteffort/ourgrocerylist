@@ -1,4 +1,4 @@
-stuff from deferred.md and elsewhere that is done (enough).
+stuff from deferred.md and elsewhere that is done (enough). see also done.md.
 - multiple-list support in the code (and hence non-hardcoded list ids
   in fake repo -- currently the single list has the id "default"
 - acls, authentication, authorization

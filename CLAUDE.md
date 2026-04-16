@@ -29,9 +29,7 @@ firebase/
 
 ## Current state
 
-Core functionality implemented: Add, edit, delete, check/uncheck items. Edit dialog with add-mode and edit-mode (mode-free composable, ViewModel constructs `ItemDialogState`). Undo/redo via `UndoRedoManager` (in-memory stacks, Command pattern with `reverse()`). ViewModel and UndoRedoManager unit tests in place. No Firebase. Backed by in-memory FakeShoppingRepository.
-
-List sharing across users & devices implemented via Firestore; last-writer wins.
+Core functionality implemented: Add, edit, delete, check/uncheck items. Edit dialog with add-mode and edit-mode (mode-free composable, ViewModel constructs `ItemDialogState`). Undo/redo via `UndoRedoManager` (in-memory stacks, Command pattern with `reverse()`). ViewModel and UndoRedoManager unit tests in place. Tests use in-memory FakeShoppingRepository. Firebase integration complete. List sharing across users & devices implemented.
 
 ## Conventions
 

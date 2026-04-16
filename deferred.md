@@ -1,4 +1,5 @@
-These aspects have not yet been fully designed and implemented and are deferred to a later phase.
+These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
+- get rid of 'decrement below 0 == delete', disable '-' in stepper when quanity <= 1
 - logout
 - metadata in lists and items: at least creation and modification time
 - initial launch is buggy: sometimes get permission denied first time
@@ -72,8 +73,11 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - use app check
 - release on Play Store
 - deploy cloud function & firestore.rules
-- many things from ourgrocerylist-handoff.md
-- autocomplete in add
+- fancy animations
+  - **Check:** Checkbox fills with accent color and checkmark. Once animation completes, row collapses and item cross-fades into its alphabetical position in the checked section. Viewport stays anchored to the unchecked section — does not follow the item.
+  - **Uncheck:** Checkbox drains (checkmark disappears, border goes gray). Row collapses and item appears in the unchecked section. Viewport stays in the checked section.
+  - **Delete:** Row flushes light red, then slides horizontally off the left edge while collapsing vertically. A trashcan icon materializes at the bottom of the screen, appears to receive the deleted item (lid opens and closes), then fades out. No permanent trash list.
+  -Remote mutations (from another user) trigger the same animations as local ones, minus user-initiated affordances (e.g. no trashcan arc for remote deletes — just the red flush and slide)- autocomplete in add
   - basic (system-provided)
   - assist user to find exist checked items
   - maybe domain-aware

@@ -6,34 +6,7 @@ Clients write directly to Firestore. The SDK handles offline persistence, ordere
 
 ## Item document structure
 
-```
-lists/{listId}/items/{itemId}
-{
-  fields: {
-    name: string,
-    quantity: number,
-    checked: boolean
-  },
-  fingerprint: string,
-  clientId: string,
-  baseFields: {
-    name: string,
-    quantity: number,
-    checked: boolean
-  },
-  baseFingerprint: string,
-}
-```
-
-**`fields`** — the current state of the item. This is what the app renders.
-
-**`fingerprint`** — a stable fingerprint of the current `fields`, computed and written by the client on every mutation. The Cloud Function never computes fingerprints — it only compares strings.
-
-**`clientId`** — identifies which client performed this write. Stable per device, persisted across app restarts. Generated on first launch (UUID), stored in Preferences DataStore.
-
-**`baseFields`** — the state of `fields` observed by the client immediately before it performed this write. Written by the client on every mutation: the client copies the current `fields` into `baseFields` before overwriting `fields` with the new values.
-
-**`baseFingerprint`** — the `fingerprint` value of the state the client based its edit on. If the client is editing from up-to-date state, this matches the document's `fingerprint` field prior to the write. If another client wrote in between, it won't match.
+See ourgrocerylist-handoff.md, especially the `baseFingerprint` field.
 
 ## Write flow (client)
 
