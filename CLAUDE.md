@@ -63,6 +63,7 @@ Core functionality implemented: Add, edit, delete, check/uncheck items. Edit dia
 - Break large implementation tasks into human-reviewable chunks, to
   enable course-correction. But not at the expense of excessive
   stubbing or throwaway code.
+- When refactoring copy comments from the unrefactored code to an appropriate place in the refactored code.
 - For trivial questions (e.g. "what is the project id?") just ask.
 
 ## Repository Structure

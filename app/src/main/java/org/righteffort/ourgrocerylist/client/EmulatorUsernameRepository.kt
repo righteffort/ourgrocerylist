@@ -14,4 +14,8 @@ class EmulatorUsernameRepository(private val dataStore: DataStore<Preferences>) 
     suspend fun save(username: String) {
         dataStore.edit { it[EMULATOR_USERNAME_KEY] = username }
     }
+
+    suspend fun clear() {
+        dataStore.edit { it.remove(EMULATOR_USERNAME_KEY) }
+    }
 }

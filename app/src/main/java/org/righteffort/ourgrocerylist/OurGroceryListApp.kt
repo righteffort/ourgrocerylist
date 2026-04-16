@@ -6,7 +6,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.functions
@@ -18,10 +17,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
 import org.righteffort.ourgrocerylist.client.ClientIdRepository
-import org.righteffort.ourgrocerylist.client.EmulatorUsernameRepository
 import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.FirestoreListRepository
-import org.righteffort.ourgrocerylist.util.setUpFirebaseEmulators
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_prefs")
 
@@ -40,18 +37,15 @@ class OurGroceryListApp : Application() {
     internal val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
-    internal var emulatorUsernameRepository: EmulatorUsernameRepository? = null
+    lateinit var firebaseEnvironment: FirebaseEnvironment
 
     override fun onCreate() {
         super.onCreate()
-        if (BuildConfig.USE_FIREBASE_EMULATOR) {
-            // Requires `for p in 8080 9099 5001 ; do adb reverse tcp:$p tcp:$p ; done`
-            // 127.0.0.1 because some devices fail to DNS-resolve "localhost".
-            // Firebase.auth.useEmulator("127.0.0.1", 9099)
-            // Firebase.firestore.useEmulator("127.0.0.1", 8080)
-            // Firebase.functions.useEmulator("127.0.0.1", 5001)
-	    setUpFirebaseEmulators()
-            emulatorUsernameRepository = EmulatorUsernameRepository(dataStore)
+        firebaseEnvironment = if (BuildConfig.USE_FIREBASE_EMULATOR) {
+            // Requires `for p in 8080 9099 5001 ; do adb reverse tcp:$p tcp:$p ; done` for emulator.
+            EmulatorFirebaseEnvironment(dataStore)
+        } else {
+            ProductionFirebaseEnvironment()
         }
     }
 
