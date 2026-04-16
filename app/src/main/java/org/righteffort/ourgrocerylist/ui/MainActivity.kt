@@ -1,10 +1,13 @@
 package org.righteffort.ourgrocerylist.ui
 
 import android.os.Bundle
+import android.text.InputType
 import android.util.Log
+import android.widget.EditText
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -22,6 +25,7 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
 import org.righteffort.ourgrocerylist.BuildConfig
 import org.righteffort.ourgrocerylist.OurGroceryListApp
@@ -76,13 +80,19 @@ class MainActivity : ComponentActivity() {
 
     private suspend fun signInAndInitialize(app: OurGroceryListApp) {
         if (BuildConfig.USE_FIREBASE_EMULATOR) {
+            val username = getEmulatorUsername(app)
+            val email = "$username@test.invalid"
+
             try {
-                Firebase.auth.createUserWithEmailAndPassword("test1@test.invalid", "password").await()
+                Firebase.auth.createUserWithEmailAndPassword(email, "password").await()
+                val profileUpdates = com.google.firebase.auth.userProfileChangeRequest {
+                    displayName = username
+                }
+                Firebase.auth.currentUser?.updateProfile(profileUpdates)?.await()
             } catch (_: FirebaseAuthUserCollisionException) {
                 // User already exists on the emulator — proceed to sign in.
             }
-	    // TODO: would be nice to have a login screen for manual multi-user tests on devices running against emulators
-            Firebase.auth.signInWithEmailAndPassword("test1@test.invalid", "password").await()
+            Firebase.auth.signInWithEmailAndPassword(email, "password").await()
         } else {
             val currentUser = Firebase.auth.currentUser
             if (currentUser == null) {
@@ -138,6 +148,30 @@ class MainActivity : ComponentActivity() {
             Firebase.auth.signInWithCredential(authCredential).await()
         } else {
             throw IllegalStateException("Unexpected credential type: ${credential.type}")
+        }
+    }
+
+    private suspend fun getEmulatorUsername(app: OurGroceryListApp): String {
+        val repo = app.emulatorUsernameRepository!!
+        repo.get()?.let { return it }
+
+        return suspendCancellableCoroutine { continuation ->
+            val editText = EditText(this).apply {
+                setText("test")
+                inputType = InputType.TYPE_CLASS_TEXT
+            }
+
+            AlertDialog.Builder(this)
+                .setTitle("Create/Use Test User")
+                .setMessage("Username (email will be username@test.invalid):")
+                .setView(editText)
+                .setPositiveButton("Create") { _, _ ->
+                    val username = editText.text.toString()
+                    lifecycleScope.launch { repo.save(username) }
+                    continuation.resumeWith(Result.success(username))
+                }
+                .setCancelable(false)
+                .show()
         }
     }
 }

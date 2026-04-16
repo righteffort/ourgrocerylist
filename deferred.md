@@ -1,4 +1,5 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase.
+- logout
 - metadata in lists and items: at least creation and modification time
 - initial launch is buggy: sometimes get permission denied first time
   around, have to restart; sometimes get two 'Groceries' lists

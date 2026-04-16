@@ -10,3 +10,4 @@ stuff from deferred.md and elsewhere that is done (enough).
   - authorization will be via firestore security rules
 - read about kotlin firestore sdk regarding state / mutation observer -- is set up "atomic" ? how about when mediated by cache?
   - it's fine. 
+- persist username across invocations when using emulator

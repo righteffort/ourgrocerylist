@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
 import org.righteffort.ourgrocerylist.client.ClientIdRepository
+import org.righteffort.ourgrocerylist.client.EmulatorUsernameRepository
 import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.FirestoreListRepository
 import org.righteffort.ourgrocerylist.util.setUpFirebaseEmulators
@@ -39,6 +40,8 @@ class OurGroceryListApp : Application() {
     internal val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
+    internal var emulatorUsernameRepository: EmulatorUsernameRepository? = null
+
     override fun onCreate() {
         super.onCreate()
         if (BuildConfig.USE_FIREBASE_EMULATOR) {
@@ -48,6 +51,7 @@ class OurGroceryListApp : Application() {
             // Firebase.firestore.useEmulator("127.0.0.1", 8080)
             // Firebase.functions.useEmulator("127.0.0.1", 5001)
 	    setUpFirebaseEmulators()
+            emulatorUsernameRepository = EmulatorUsernameRepository(dataStore)
         }
     }
 
