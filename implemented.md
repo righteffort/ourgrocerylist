@@ -1,3 +1,5 @@
+See also done.md
+
 ## Accent color
 
 `#8775B8` — muted medium purple. Used for: toolbar background, filled checkboxes, active undo/redo buttons, text field focus border, save button background.

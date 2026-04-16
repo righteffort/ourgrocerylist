@@ -11,4 +11,5 @@ data class UiState(
     val currentListName: String = "",
     val lists: List<ListMetadata> = emptyList(),
     val isOwner: Boolean = false,
+    val currentUserEmail: String = "",
 )

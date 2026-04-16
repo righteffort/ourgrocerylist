@@ -1,9 +1,8 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
 - get rid of 'decrement below 0 == delete', disable '-' in stepper when quanity <= 1
-- logout
 - metadata in lists and items: at least creation and modification time
-- initial launch is buggy: sometimes get permission denied first time
-  around, have to restart; sometimes get two 'Groceries' lists
+- initial launch is buggy: sometimes get two 'Groceries' lists
+- deleting last list results in null value error
 - provide 'restart' button or something on crash screen
 - allowlist in firestore `authorizedUsers` collection of empty documents with email as id, then `function isAuthorized() { return request.auth != null && exists(/databases/$(database)/documents/authorizedUsers/$(request.auth.email)); }`
 - get rid of delayed navigation to new list created when offline --

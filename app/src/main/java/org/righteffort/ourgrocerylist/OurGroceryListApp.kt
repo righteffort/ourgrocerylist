@@ -6,6 +6,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.functions
@@ -33,7 +35,7 @@ class OurGroceryListApp : Application() {
     internal val internalInitErrors = MutableSharedFlow<String>(replay = 1)
     val initErrors: SharedFlow<String> = internalInitErrors.asSharedFlow()
 
-    // Set by MainActivity after auth succeeds. Drives observeLists() in FirestoreListRepository.
+    // Drives observeLists() in FirestoreListRepository.
     internal val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
@@ -46,6 +48,15 @@ class OurGroceryListApp : Application() {
             EmulatorFirebaseEnvironment(dataStore)
         } else {
             ProductionFirebaseEnvironment()
+        }
+        Firebase.auth.addIdTokenListener { firebaseAuth: FirebaseAuth ->
+            val fbUser = firebaseAuth.currentUser
+            val newUser = if (fbUser?.email != null) {
+                User(uid = fbUser.uid, email = fbUser.email!!)
+            } else {
+                null
+            }
+            _currentUser.value = newUser
         }
     }
 

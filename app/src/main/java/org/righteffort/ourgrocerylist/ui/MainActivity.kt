@@ -13,7 +13,6 @@ import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.launch
 import org.righteffort.ourgrocerylist.OurGroceryListApp
-import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
 import org.righteffort.ourgrocerylist.ui.theme.OurGroceryListTheme
 
@@ -56,17 +55,33 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             OurGroceryListTheme {
-                ShoppingListScreen(viewModel)
+                ShoppingListScreen(viewModel, onSignout = ::signout)
             }
         }
     }
 
     private suspend fun signInAndInitialize(app: OurGroceryListApp) {
         app.firebaseEnvironment.signIn(this)
+        // Validate post-conditions. _currentUser is driven by the auth state listener in
+        // OurGroceryListApp, which fires after Firestore's internal token-updater — so by the
+        // time observeLists() reacts to _currentUser, Firestore already holds the new token.
         val currentUser = Firebase.auth.currentUser
             ?: throw IllegalStateException("No authenticated user after sign-in")
-        val email = currentUser.email
+        currentUser.email
             ?: throw IllegalStateException("Authenticated user has no email address")
-        app._currentUser.value = User(uid = currentUser.uid, email = email)
+    }
+
+    private fun signout() {
+        val app = application as OurGroceryListApp
+        lifecycleScope.launch {
+            try {
+                app.firebaseEnvironment.signOut()
+                // _currentUser is cleared by the auth state listener on signOut().
+                signInAndInitialize(app)
+            } catch (e: Exception) {
+                Log.e(TAG, "Re-authentication after sign-out failed", e)
+                app.internalInitErrors.emit(e.message ?: "Re-authentication failed")
+            }
+        }
     }
 }

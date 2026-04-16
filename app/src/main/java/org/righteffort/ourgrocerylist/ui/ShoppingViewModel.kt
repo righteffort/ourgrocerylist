@@ -161,6 +161,9 @@ class ShoppingViewModel(
         combine(_currentListId.filterNotNull(), _confirmedListIds) { listId, confirmed ->
             listId to confirmed
         }.flatMapLatest { (listId, confirmed) ->
+            // confirmed is empty while signed out or between sessions. Don't create resources
+            // and Firestore listeners, just wait for the next emission.
+            if (confirmed.isEmpty()) return@flatMapLatest flow { awaitCancellation() }
             val resources = getOrCreateResources(listId)
             if (listId in confirmed) {
                 combine(
@@ -185,7 +188,8 @@ class ShoppingViewModel(
                 logAndEmitFatalError("Failed to observe lists in uiState", e)
                 emit(emptyList())
             },
-    ) { (listId, items, undoState), lists ->
+        currentUserFlow,
+    ) { (listId, items, undoState), lists, currentUser ->
         val currentList = lists.find { it.id == listId }
         val (checked, unchecked) = items.partition { it.fields.checked }
         UiState(
@@ -196,6 +200,7 @@ class ShoppingViewModel(
             currentListName = currentList?.name ?: "",
             lists = lists,
             isOwner = currentList?.isOwner ?: false,
+            currentUserEmail = currentUser?.email ?: "",
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState())
 

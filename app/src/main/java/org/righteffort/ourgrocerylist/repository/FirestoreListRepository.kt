@@ -6,8 +6,9 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.tasks.await
 import org.righteffort.ourgrocerylist.model.ListMetadata
 import org.righteffort.ourgrocerylist.model.User
@@ -41,8 +42,14 @@ class FirestoreListRepository(
     // Firestore evaluates security rules per result document, so both queries are safe.
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override fun observeLists(): Flow<List<ListMetadata>> = currentUserFlow
-        .filterNotNull()  // Becomes not-null when auth completes.
         .flatMapLatest { user ->
+            // Cancel the old callbackFlow immediately on sign-out (user == null) so Firestore
+            // snapshot listeners are removed before the auth token is revoked, preventing
+            // PERMISSION_DENIED from lingering listeners reaching logAndEmitFatalError.
+            // Emit an empty list (not emptyFlow) so the ViewModel's collect block runs its
+            // cleanup code — cancelling all observationJobs in listResources — before
+            // Firestore revokes the auth token and fires PERMISSION_DENIED on them.
+            if (user == null) return@flatMapLatest flowOf(emptyList())
             callbackFlow {
                 var ownedDocs: List<DocumentSnapshot> = emptyList()
                 var editorDocs: List<DocumentSnapshot> = emptyList()

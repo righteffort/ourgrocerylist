@@ -28,7 +28,6 @@ class EmulatorFirebaseEnvironment(dataStore: DataStore<Preferences>) : FirebaseE
     override suspend fun signIn(activity: ComponentActivity) {
         val username = getOrPromptUsername(activity)
         val email = "$username@test.invalid"
-
         try {
             Firebase.auth.createUserWithEmailAndPassword(email, "password").await()
             val profileUpdates = userProfileChangeRequest { displayName = username }
@@ -56,7 +55,7 @@ class EmulatorFirebaseEnvironment(dataStore: DataStore<Preferences>) : FirebaseE
                 .setTitle("Create/Use Test User")
                 .setMessage("Username (email will be username@test.invalid):")
                 .setView(editText)
-                .setPositiveButton("Create") { _, _ ->
+                .setPositiveButton("Create/Use") { _, _ ->
                     val username = editText.text.toString()
                     activity.lifecycleScope.launch { usernameRepository.save(username) }
                     continuation.resumeWith(Result.success(username))

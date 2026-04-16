@@ -1,4 +1,4 @@
-stuff from deferred.md and elsewhere that is done (enough). see also done.md.
+stuff from deferred.md and elsewhere that is done (enough). see also implemented.md.
 - multiple-list support in the code (and hence non-hardcoded list ids
   in fake repo -- currently the single list has the id "default"
 - acls, authentication, authorization
@@ -11,3 +11,5 @@ stuff from deferred.md and elsewhere that is done (enough). see also done.md.
 - read about kotlin firestore sdk regarding state / mutation observer -- is set up "atomic" ? how about when mediated by cache?
   - it's fine. 
 - persist username across invocations when using emulator
+- logout
+- initial launch is buggy: sometimes get permission denied 

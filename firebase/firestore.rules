@@ -12,12 +12,9 @@ service cloud.firestore {
         let _ = debug("isAllowedUser " + request.method + " " + string(request.path) + " " + (request.auth == null ? "null" : request.auth.token.email));
         let result =
             request.auth != null &&
-            request.auth.token.email in ['tromer@gmail.com',
-                                         'sbromer@gmail.com',
-                                         'thr.notes@gmail.com',
-                                         'test1@test.invalid',
-                                         'test2@test.invalid'
-                                        ];
+            (request.auth.token.email in ['tromer@gmail.com',
+                                         'sbromer@gmail.com']
+                 || request.auth.token.email.matches('.*@test\\.invalid'));
         return (debug("isAllowedUser ").size() >= 0) && debug(result);
       }
 

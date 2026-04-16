@@ -64,7 +64,7 @@ import org.righteffort.ourgrocerylist.util.formatQuantityNumber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShoppingListScreen(viewModel: ShoppingViewModel) {
+fun ShoppingListScreen(viewModel: ShoppingViewModel, onSignout: () -> Unit) {
     val fatalError by viewModel.fatalError.collectAsState()
     if (fatalError != null) {
         FatalErrorScreen(fatalError!!)
@@ -79,12 +79,23 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
     val deleteListDialogVisible by viewModel.deleteListDialogVisible.collectAsState()
     val importListDialogState by viewModel.importListDialogState.collectAsState()
     var addFieldText by remember { mutableStateOf("") }
+    var signoutConfirmDialogVisible by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(viewModel) {
         viewModel.errors.collect { message ->
             snackbarHostState.showSnackbar(message)
         }
+    }
+
+    if (signoutConfirmDialogVisible) {
+        SignoutConfirmDialog(
+            onConfirm = {
+                signoutConfirmDialogVisible = false
+                onSignout()
+            },
+            onDismiss = { signoutConfirmDialogVisible = false },
+        )
     }
 
     dialogState?.let { ItemDialog(it) }
@@ -154,11 +165,13 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel) {
                 actions = {
                     OverflowMenu(
                         isOwner = state.isOwner,
+                        currentUserEmail = state.currentUserEmail,
                         onAddList = { viewModel.openAddListDialog() },
                         onRenameList = { viewModel.openRenameListDialog() },
                         onShareList = { viewModel.openShareListDialog() },
                         onImportList = { viewModel.openImportListDialog() },
                         onDeleteList = { viewModel.openDeleteListDialog() },
+                        onSignoutRequest = { signoutConfirmDialogVisible = true },
                     )
                 },
             )
@@ -367,11 +380,13 @@ private fun BottomBar(state: UiState, onUndo: () -> Unit, onRedo: () -> Unit) {
 @Composable
 private fun OverflowMenu(
     isOwner: Boolean,
+    currentUserEmail: String,
     onAddList: () -> Unit,
     onRenameList: () -> Unit,
     onShareList: () -> Unit,
     onImportList: () -> Unit,
     onDeleteList: () -> Unit,
+    onSignoutRequest: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     IconButton(onClick = { expanded = true }) {
@@ -419,7 +434,36 @@ private fun OverflowMenu(
                 },
             )
         }
+        HorizontalDivider()
+        DropdownMenuItem(
+            text = { Text("Sign out") },
+            onClick = {
+                expanded = false
+                onSignoutRequest()
+            },
+        )
+        Text(
+            text = currentUserEmail,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
     }
+}
+
+@Composable
+private fun SignoutConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Sign out?") },
+        text = { Text("You will be signed out and returned to the sign-in screen.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text("Sign out") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
 
 @Composable
