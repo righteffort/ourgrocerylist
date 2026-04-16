@@ -1,4 +1,8 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase.
+- metadata in lists and items: at least creation and modification time
+- initial launch is buggy: sometimes get permission denied first time
+  around, have to restart; sometimes get two 'Groceries' lists
+- provide 'restart' button or something on crash screen
 - allowlist in firestore `authorizedUsers` collection of empty documents with email as id, then `function isAuthorized() { return request.auth != null && exists(/databases/$(database)/documents/authorizedUsers/$(request.auth.email)); }`
 - get rid of delayed navigation to new list created when offline --
   see TODO in ShoppingViewModel.kt
@@ -66,8 +70,6 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - release on f-droid
 - use app check
 - release on Play Store
-- initial launch is buggy: sometimes get permission denied first time
-  around, have to restart; sometimes get two 'Groceries' lists
 - deploy cloud function & firestore.rules
 - many things from ourgrocerylist-handoff.md
 - autocomplete in add
@@ -91,6 +93,7 @@ These are hygiene issues that may have been missed
 - review for garbage unit tests (e.g. that just restate the implementation w/mocks instead of the effects)
 
 These aspects might never be implemented
+- build error reporting
 - integration tests add test users to firestore whitelist, though realistically that means editing the string form of the rules one way or another
 - user-selected CSV import headers
 - detection of conflicts between mutations and deletes, presumably involving tombstones
