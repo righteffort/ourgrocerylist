@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             OurGroceryListTheme {
-                ShoppingListScreen(viewModel, onSignout = ::signout)
+                ShoppingListScreen(viewModel, onSignout = ::signout, onRestart = ::restartApp)
             }
         }
     }
@@ -69,6 +69,12 @@ class MainActivity : ComponentActivity() {
             ?: throw IllegalStateException("No authenticated user after sign-in")
         currentUser.email
             ?: throw IllegalStateException("Authenticated user has no email address")
+    }
+
+    private fun restartApp() {
+        (application as OurGroceryListApp).internalInitErrors.resetReplayCache()
+        viewModelStore.clear()
+        recreate()
     }
 
     private fun signout() {

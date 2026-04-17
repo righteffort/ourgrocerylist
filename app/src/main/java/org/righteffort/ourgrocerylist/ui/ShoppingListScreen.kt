@@ -64,10 +64,10 @@ import org.righteffort.ourgrocerylist.util.formatQuantityNumber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShoppingListScreen(viewModel: ShoppingViewModel, onSignout: () -> Unit) {
+fun ShoppingListScreen(viewModel: ShoppingViewModel, onSignout: () -> Unit, onRestart: () -> Unit) {
     val fatalError by viewModel.fatalError.collectAsState()
     if (fatalError != null) {
-        FatalErrorScreen(fatalError!!)
+        FatalErrorScreen(fatalError!!, onRestart)
         return
     }
 
@@ -595,7 +595,7 @@ private fun ShareListDialog(
 }
 
 @Composable
-private fun FatalErrorScreen(message: String) {
+private fun FatalErrorScreen(message: String, onRestart: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -616,6 +616,12 @@ private fun FatalErrorScreen(message: String) {
                 modifier = Modifier.padding(top = 16.dp),
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
+            Button(
+                onClick = onRestart,
+                modifier = Modifier.padding(top = 24.dp),
+            ) {
+                Text("Restart")
+            }
         }
     }
 }

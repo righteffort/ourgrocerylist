@@ -1,9 +1,17 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
+- provide 'restart' button or something on crash screen
+- together
+  - review for code that compromises strong typechecking (e.g. by using typescript syntax, overly permissive casts in any language)
+  - review for swallowed errors
+  - review locations that throw 'fatal' errors to see if they are recoverable at a lower level than the application 'root'
+- get first integration test working & write down how to run it: ./gradlew testLocalDebugUnitTest -PrunIntegration
+- behavior when firebase functions are unavailable is weak: "INTERNAL"
+- behavior when creating list and firestore offline is weak (at least i think that's the cause of this): PERMISSION_DENIED: evaluation error at L87:16 for 'list' @ L87, Null value error. for 'list' @ L87. Or maybe worse, silently does nothing! 
+- enable firestore local persistence if it isn't already
 - get rid of 'decrement below 0 == delete', disable '-' in stepper when quanity <= 1
 - metadata in lists and items: at least creation and modification time
 - initial launch is buggy: sometimes get two 'Groceries' lists
 - deleting last list results in null value error
-- provide 'restart' button or something on crash screen
 - allowlist in firestore `authorizedUsers` collection of empty documents with email as id, then `function isAuthorized() { return request.auth != null && exists(/databases/$(database)/documents/authorizedUsers/$(request.auth.email)); }`
 - get rid of delayed navigation to new list created when offline --
   see TODO in ShoppingViewModel.kt
@@ -92,8 +100,6 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - play store
 
 These are hygiene issues that may have been missed
-- review for swallowed errors
-- review for code that compromises strong typechecking (e.g. by using typescript syntax, overly permissive casts in any language)
 - review for garbage unit tests (e.g. that just restate the implementation w/mocks instead of the effects)
 
 These aspects might never be implemented
