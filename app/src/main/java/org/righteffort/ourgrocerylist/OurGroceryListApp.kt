@@ -8,6 +8,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.FirebaseFirestoreSettings
+import com.google.firebase.firestore.PersistentCacheSettings
 import com.google.firebase.firestore.firestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.functions
@@ -43,6 +45,9 @@ class OurGroceryListApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        Firebase.firestore.firestoreSettings = FirebaseFirestoreSettings.Builder()
+            .setLocalCacheSettings(PersistentCacheSettings.newBuilder().build())
+            .build()
         firebaseEnvironment = if (BuildConfig.USE_FIREBASE_EMULATOR) {
             // Requires `for p in 8080 9099 5001 ; do adb reverse tcp:$p tcp:$p ; done` for emulator.
             EmulatorFirebaseEnvironment(dataStore)

@@ -13,3 +13,5 @@ stuff from deferred.md and elsewhere that is done (enough). see also implemented
 - persist username across invocations when using emulator
 - logout
 - initial launch is buggy: sometimes get permission denied 
+- provide 'restart' button or something on crash screen
+- enable firestore local persistence if it isn't already
