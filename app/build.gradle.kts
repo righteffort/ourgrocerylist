@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.services)
     alias(libs.plugins.kotlin.serialization)
+    id("idea")  // Needed for download sources?
 }
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -77,7 +78,8 @@ android {
     testOptions {
         unitTests {
             all { it.useJUnitPlatform() }
-        }
+            isIncludeAndroidResources = true // Required for integration tests using Firebase emulators
+	}
     }
 }
 
@@ -125,3 +127,12 @@ tasks.withType<Test>().configureEach {
         }
     }
 }
+
+// Needed for download sources?
+idea {
+    module {
+        isDownloadSources = true
+        isDownloadJavadoc = true
+    }
+}
+

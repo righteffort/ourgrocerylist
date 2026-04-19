@@ -63,7 +63,13 @@ Core functionality implemented: Add, edit, delete, check/uncheck items. Edit dia
 - Break large implementation tasks into human-reviewable chunks, to
   enable course-correction. But not at the expense of excessive
   stubbing or throwaway code.
-- When refactoring copy comments from the unrefactored code to an appropriate place in the refactored code.
+- When troubleshooting difficult problems, err on the side of adding
+  diagnostic logs to validate hypotheses rather than rushing to
+  implement your first guess as to the source of the problem.
+- When refactoring, copy all comments and TODOs from the original code
+  to an appropriate place in the refactored code unless it is
+  extremely clear that the comment relates to the change you are
+  making.
 - For trivial questions (e.g. "what is the project id?") just ask.
 
 ## Repository Structure

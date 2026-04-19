@@ -79,7 +79,7 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel, onSignout: () -> Unit, onRe
     val deleteListDialogVisible by viewModel.deleteListDialogVisible.collectAsState()
     val importListDialogState by viewModel.importListDialogState.collectAsState()
     var addFieldText by remember { mutableStateOf("") }
-    var signoutConfirmDialogVisible by remember { mutableStateOf(false) }
+    var signOutConfirmDialogVisible by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(viewModel) {
@@ -88,13 +88,13 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel, onSignout: () -> Unit, onRe
         }
     }
 
-    if (signoutConfirmDialogVisible) {
+    if (signOutConfirmDialogVisible) {
         SignoutConfirmDialog(
             onConfirm = {
-                signoutConfirmDialogVisible = false
+                signOutConfirmDialogVisible = false
                 onSignout()
             },
-            onDismiss = { signoutConfirmDialogVisible = false },
+            onDismiss = { signOutConfirmDialogVisible = false },
         )
     }
 
@@ -171,7 +171,7 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel, onSignout: () -> Unit, onRe
                         onShareList = { viewModel.openShareListDialog() },
                         onImportList = { viewModel.openImportListDialog() },
                         onDeleteList = { viewModel.openDeleteListDialog() },
-                        onSignoutRequest = { signoutConfirmDialogVisible = true },
+                        onSignoutRequest = { signOutConfirmDialogVisible = true },
                     )
                 },
             )

@@ -1,5 +1,5 @@
 [versions]
-agp = "9.1.0"  # https://developer.android.com/build/releases/gradle-plugin
+agp = "9.1.1"  # https://developer.android.com/build/releases/gradle-plugin
 kotlin = "2.3.20"  # https://kotlinlang.org/docs/releases.html
 coreKtx = "1.18.0"  # https://developer.android.com/jetpack/androidx/releases/core
 junit = "6.0.3"  # https://junit.org/

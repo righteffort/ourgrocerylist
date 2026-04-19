@@ -11,6 +11,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import org.righteffort.ourgrocerylist.OurGroceryListApp
 import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
@@ -42,7 +43,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         val app = application as OurGroceryListApp
         lifecycleScope.launch {
             try {
@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             OurGroceryListTheme {
-                ShoppingListScreen(viewModel, onSignout = ::signout, onRestart = ::restartApp)
+                ShoppingListScreen(viewModel, onSignout = ::signOut, onRestart = ::restartApp)
             }
         }
     }
@@ -71,13 +71,14 @@ class MainActivity : ComponentActivity() {
             ?: throw IllegalStateException("Authenticated user has no email address")
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun restartApp() {
         (application as OurGroceryListApp).internalInitErrors.resetReplayCache()
         viewModelStore.clear()
         recreate()
     }
 
-    private fun signout() {
+    private fun signOut() {
         val app = application as OurGroceryListApp
         lifecycleScope.launch {
             try {
