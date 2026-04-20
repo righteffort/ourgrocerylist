@@ -58,8 +58,8 @@ class SharedListIntegrationTest {
     private val userB = TestUser(email = "test2@test.invalid", listName = "User B List", appName = "userB")
 
     @Before
-    fun setUp() = runTest {  // so that auth await calls don't deadlock?
-        clearEmulatorData()  // TODO: does clearEmulatorData even work. No.
+    fun setUp() = runTest {
+        clearEmulatorData()
         val defaultOptions = FirebaseOptions.Builder()
             .setProjectId(PROJECT_ID)
             .setApplicationId("1:000000000000:android:0000000000000000")
@@ -173,26 +173,25 @@ class SharedListIntegrationTest {
 
     private suspend fun signIn(app: FirebaseApp, email: String): User {
         val auth = FirebaseAuth.getInstance(app)
-        val result = try {
-            auth.createUserWithEmailAndPassword(email, TEST_PASSWORD)
+        val result = auth.createUserWithEmailAndPassword(email, TEST_PASSWORD)
                 .awaitInRobolectric()
-        } catch (_: FirebaseAuthUserCollisionException) {
-	    // TODO: If we arrive here then clearEmulatorData failed.
-            auth.signInWithEmailAndPassword(email, TEST_PASSWORD)
-                .awaitInRobolectric()
-        }
         return User(uid = result.user!!.uid, email = email)
     }
 
     private fun clearEmulatorData() {
-        // TODO: this doesn't work.
         fun delete(url: String) {
-            with(URL(url).openConnection() as HttpURLConnection) {
-                requestMethod = "DELETE"
-                responseCode  // must be read to dispatch the request
+            val conn = URL(url).openConnection() as HttpURLConnection
+            try {
+                conn.requestMethod = "DELETE"
+                conn.connect()
+                val status = conn.responseCode
+                check(status == HttpURLConnection.HTTP_OK) {
+                    "DELETE $url failed with status $status"
+                }
+            } finally {
+                conn.disconnect()
             }
         }
-        // TODO: use httpclient for nicer status code check, call clearPersistence though i'm not convinced it is necessary
         delete("http://127.0.0.1:8080/emulator/v1/projects/$PROJECT_ID/databases/(default)/documents")
         delete("http://127.0.0.1:9099/emulator/v1/projects/$PROJECT_ID/accounts")
     }
