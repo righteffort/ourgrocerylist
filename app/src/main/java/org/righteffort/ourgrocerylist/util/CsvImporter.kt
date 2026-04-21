@@ -83,8 +83,7 @@ object CsvImporter {
         if (raw.isBlank()) return 1.0
         val d = raw.toDoubleOrNullLocale()
             ?: throw CsvParseException("Row $rowNumber: invalid quantity \"$raw\"")
-        if (d <= 0) throw CsvParseException("Row $rowNumber: quantity must be positive, got \"$raw\"")
-        return d
+        return if (d <= 0.0) 1.0 else d
     }
 
     private fun resolveChecked(record: CSVRecord, colIdx: Int?, rowNumber: Int): Boolean {

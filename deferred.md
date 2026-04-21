@@ -1,4 +1,6 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
+- import trader joe's fails weirdly and silently (partial import)
+- spurious permission denied when importing list but import succeeds
 - adopt timber or something so we can drop printlns in prod and see Log.d
 - together
   - review for code that compromises strong typechecking (e.g. by using typescript syntax, overly permissive casts in any language)

@@ -83,6 +83,20 @@ class CsvImporterTest {
     }
 
     @Test
+    fun `zero quantity converted to 1_0`() {
+        val csv = "name,quantity\nApples,0"
+        val items = CsvImporter.parse(csv)
+        assertEquals(1.0, items[0].quantity)
+    }
+
+    @Test
+    fun `negative quantity converted to 1_0`() {
+        val csv = "name,quantity\nApples,-1.0"
+        val items = CsvImporter.parse(csv)
+        assertEquals(1.0, items[0].quantity)
+    }
+
+    @Test
     fun `blank checked field defaults to false`() {
         val csv = "name,quantity,checked\nApples,2.0,"
         val items = CsvImporter.parse(csv)
@@ -184,20 +198,6 @@ class CsvImporterTest {
         val ex = assertThrows<CsvParseException> { CsvImporter.parse(csv) }
         assertTrue(ex.message!!.contains("2"), "Expected row 2 in: ${ex.message}")
         assertTrue(ex.message!!.contains("lots"), "Expected offending value in: ${ex.message}")
-    }
-
-    @Test
-    fun `zero quantity throws with row number`() {
-        val csv = "name,quantity\nApples,0"
-        val ex = assertThrows<CsvParseException> { CsvImporter.parse(csv) }
-        assertTrue(ex.message!!.contains("2"), "Expected row 2 in: ${ex.message}")
-    }
-
-    @Test
-    fun `negative quantity throws with row number`() {
-        val csv = "name,quantity\nApples,-1.0"
-        val ex = assertThrows<CsvParseException> { CsvImporter.parse(csv) }
-        assertTrue(ex.message!!.contains("2"), "Expected row 2 in: ${ex.message}")
     }
 
     @Test
