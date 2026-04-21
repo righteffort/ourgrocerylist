@@ -104,7 +104,7 @@ class ShoppingViewModel(
             listRepository.observeLists()
                 .catch { e -> logAndEmitFatalError("Failed to observe lists", e) }
                 .collect { lists ->
-                    println("DEBUG SVM view model observeLists lists=$lists")
+                    // println("DEBUG SVM view model observeLists lists=$lists")
                     val newIds = lists.map { it.id }.toSet()
 
                     // Create resources for newly discovered lists and start remote-change listeners.
@@ -129,7 +129,7 @@ class ShoppingViewModel(
                         val user = currentUserFlow.value
                         if (user != null) {
                             try {
-                                println("DEBUG SVM creating Groceries default list")
+                                // println("DEBUG SVM creating Groceries default list")
                                 listRepository.createList(user, "Groceries")
                             } catch (e: Exception) {
                                 logAndEmitFatalError("Failed to create initial list", e)
@@ -197,7 +197,7 @@ class ShoppingViewModel(
     ) { (listId, items, undoState), lists, currentUser ->
         val currentList = lists.find { it.id == listId }
         val (checked, unchecked) = items.partition { it.fields.checked }
-        println("DEBUG SVM maybe updating uistate listId=$listId items=$items lists=$lists")
+        // println("DEBUG SVM maybe updating uistate listId=$listId items=$items lists=$lists")
         UiState(
             uncheckedItems = unchecked.sortedWith(ITEM_COMPARATOR),
             checkedItems = checked.sortedWith(ITEM_COMPARATOR),
@@ -312,22 +312,22 @@ class ShoppingViewModel(
         val user = currentUserFlow.value ?: return
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
-        println("DEBUG SVM launching but using what dispatcher and scheduler? context=${viewModelScope.coroutineContext.toString()}")
-        println("DEBUG SVM addList main.immediate ${Dispatchers.Main.immediate.hashCode()} ${Dispatchers.Main.immediate}")
+        // println("DEBUG SVM launching but using what dispatcher and scheduler? context=${viewModelScope.coroutineContext.toString()}")
+        // println("DEBUG SVM addList main.immediate ${Dispatchers.Main.immediate.hashCode()} ${Dispatchers.Main.immediate}")
 
         val svmDispatcher = viewModelScope.coroutineContext[ContinuationInterceptor]
-        println("svm dispatcher: $svmDispatcher (${"%x".format(System.identityHashCode(svmDispatcher))})")
-        println("svm dispatcher class: ${svmDispatcher!!::class.java.name}");
+        // println("svm dispatcher: $svmDispatcher (${"%x".format(System.identityHashCode(svmDispatcher))})")
+        // println("svm dispatcher class: ${svmDispatcher!!::class.java.name}");
         viewModelScope.launch {
             try {
-                println("DEBUG SVM in ShoppingViewModel.addList launch i wish we could add")
+                // println("DEBUG SVM in ShoppingViewModel.addList launch i wish we could add")
                 val id = listRepository.createList(user, trimmed)
-                println("DEBUG SVM in ShoppingViewModel.addList call listRepository.createList")
+                // println("DEBUG SVM in ShoppingViewModel.addList call listRepository.createList")
                 // Pre-warm resources and navigate immediately. observeItems startup is gated
                 // on _confirmedListIds, so no security-rules race even with the eager switch.
                 getOrCreateResources(id)
                 _currentListId.value = id
-                println("DEBUG SVM created list name=$trimmed id=$id")
+                // println("DEBUG SVM created list name=$trimmed id=$id")
             } catch (e: Exception) {
                 logAndEmitError("Failed to create list", e)
             }
@@ -432,16 +432,16 @@ class ShoppingViewModel(
     fun dismissShareListDialog() { _shareListDialogState.value = null }
 
     fun shareList(email: String) {
-        println("sharing some list with $email")
+        // println("sharing some list with $email")
         val listId = _currentListId.value ?: return
         viewModelScope.launch {
             try {
                 listRepository.addEditor(listId, email)
                 _shareListDialogState.value = null
                 _errors.tryEmit("Editor added")
-                println("shared some list with $email")
+                // println("shared some list with $email")
             } catch (e: Exception) {
-                println("shared some list failed $email $e")
+                // println("shared some list failed $email $e")
                 Log.e(TAG, "Failed to add editor", e)
                 _shareListDialogState.value = ShareListDialogState(errorMessage = e.message ?: "Failed to add editor")
             }
@@ -452,11 +452,11 @@ class ShoppingViewModel(
 
     private fun applyCommand(command: Command) {
         val listId = _currentListId.value ?: return
-        println("DEBUG SVM applyCommand $command listId=$listId")
+        // println("DEBUG SVM applyCommand $command listId=$listId")
         viewModelScope.launch {
             try {
                 getOrCreateResources(listId).undoRedoManager.execute(command)
-                println("DEBUG SVM applyCommand completed $command")
+                // println("DEBUG SVM applyCommand completed $command")
             } catch (e: Exception) {
                 logAndEmitError("Command failed: ${command::class.simpleName}", e)
             }

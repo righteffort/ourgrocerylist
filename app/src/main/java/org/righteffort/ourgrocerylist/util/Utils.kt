@@ -13,11 +13,11 @@ import java.util.Locale
 fun setUpFirebaseEmulators(app: FirebaseApp = FirebaseApp.getInstance()) {
     // 127.0.0.1 because some devices fail to DNS-resolve "localhost"
     Firebase.auth(app).useEmulator("127.0.0.1", 9099)
-    println("DEBUG setUpFirebaseEmulators: auth emulator configured")
+    // println("DEBUG setUpFirebaseEmulators: auth emulator configured")
     Firebase.firestore(app).useEmulator("127.0.0.1", 8080)
-    println("DEBUG setUpFirebaseEmulators: firestore emulator configured")
+    // println("DEBUG setUpFirebaseEmulators: firestore emulator configured")
     Firebase.functions(app, "us-west1").useEmulator("127.0.0.1", 5001)  // TODO hardcoded!
-    println("DEBUG setUpFirebaseEmulators: functions emulator configured")
+    // println("DEBUG setUpFirebaseEmulators: functions emulator configured")
     // TODO: check that someone is listening
 }
 

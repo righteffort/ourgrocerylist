@@ -23,13 +23,13 @@ class FirestoreShoppingRepository(
 
     override fun observeItems(): Flow<List<ShoppingItem>> = callbackFlow {
         val listener = collection.addSnapshotListener { snapshot, error ->
-            println("DEBUG FSR items observe callback on: ${Thread.currentThread().name}")
+            // println("DEBUG FSR items observe callback on: ${Thread.currentThread().name}")
             if (error != null) {
                 close(error)
                 return@addSnapshotListener
             }
             val items = snapshot?.documents?.mapNotNull { it.toShoppingItem() } ?: emptyList()
-            println("DEBUG FSR items observe items=$items")
+            // println("DEBUG FSR items observe items=$items")
             trySend(items)
         }
         awaitClose { listener.remove() }
@@ -40,9 +40,9 @@ class FirestoreShoppingRepository(
     // of authorship, which would incorrectly trigger pruning for our own past writes.
     override fun observeRemotelyModifiedItemIds(): Flow<Set<String>> = callbackFlow {
         val listener = collection.addSnapshotListener { snapshot, error ->
-            println("DEBUG FSR items remotely modified callback error=$error on: ${Thread.currentThread().name}")
+            // println("DEBUG FSR items remotely modified callback error=$error on: ${Thread.currentThread().name}")
             if (error != null) {
-                println("DEBUG FSR error non-null on well")
+                // println("DEBUG FSR error non-null on well")
                 close(error)
                 return@addSnapshotListener
             }
@@ -56,7 +56,7 @@ class FirestoreShoppingRepository(
                 ?.toSet()
                 ?: emptySet()
             if (remoteIds.isNotEmpty()) trySend(remoteIds)
-            println("DEBUG FSR items observe remoteIds=$remoteIds")
+            // println("DEBUG FSR items observe remoteIds=$remoteIds")
         }
         awaitClose { listener.remove() }
     }
@@ -72,9 +72,9 @@ class FirestoreShoppingRepository(
     }
 
     private suspend fun writeItem(id: String, fields: ItemFields) {
-        println("DEBUG FSR writeItem id=$id fields=$fields")
+        // println("DEBUG FSR writeItem id=$id fields=$fields")
         collection.document(id).set(itemToFirestoreData(fields, clientId)).await()
-        println("DEBUG FSR writeItem completed id=$id")
+        // println("DEBUG FSR writeItem completed id=$id")
     }
 
     private fun DocumentSnapshot.toShoppingItem(): ShoppingItem? =
