@@ -320,9 +320,9 @@ class ShoppingViewModel(
         println("svm dispatcher class: ${svmDispatcher!!::class.java.name}");
         viewModelScope.launch {
             try {
-                println("DEBUG i wish we could add")
+                println("DEBUG in ShoppingViewModel.addList launch i wish we could add")
                 val id = listRepository.createList(user, trimmed)
-                println("DEBUG created")
+                println("DEBUG in ShoppingViewModel.addList call listRepository.createList")
                 // Pre-warm resources and navigate immediately. observeItems startup is gated
                 // on _confirmedListIds, so no security-rules race even with the eager switch.
                 getOrCreateResources(id)

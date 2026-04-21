@@ -1,42 +1,27 @@
 package org.righteffort.ourgrocerylist
 
 import android.app.Application
-import android.os.Looper
-import androidx.lifecycle.viewModelScope
 import app.cash.turbine.test
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.MemoryCacheSettings
 import com.google.firebase.functions.FirebaseFunctions
-import junit.framework.TestCase.assertEquals
-import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.TestCoroutineScheduler
-import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.FirestoreListRepository
 import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
@@ -44,14 +29,11 @@ import org.righteffort.ourgrocerylist.ui.ShoppingViewModel
 import org.righteffort.ourgrocerylist.util.setUpFirebaseEmulators
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLooper
-import org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
-import kotlin.coroutines.ContinuationInterceptor
 import kotlin.time.Duration.Companion.seconds
 
 private const val PROJECT_ID = "ourgrocerylist"
@@ -61,9 +43,8 @@ class TestApp2 : Application()
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-@Config(application = TestApp::class)
+@Config(application = TestApp2::class)
 class DifferentIntegrationTest {
-    private val testDispatcher = StandardTestDispatcher()
 
     private class TestUser(val email: String, val listName: String, val appName: String) {
         lateinit var app: FirebaseApp
@@ -74,24 +55,8 @@ class DifferentIntegrationTest {
     private val userA = TestUser(email = "test1@test.invalid", listName = "User A List", appName = "userA")
 
     @Before
-    fun setUp() {
+    fun setUp() = runTest {
         clearEmulatorData()
-    }
-
-    @After
-    fun tearDown() {
-        Dispatchers.resetMain()
-        // TODO are any of these async/suspend ?
-        println("DEBUG starting tearDown")
-        userA.app.delete()
-        userB.app.delete()
-        //clearEmulatorData()
-        println("DEBUG done with tearDown")
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    @Test
-    fun someTest() = runBlocking(/*testDispatcher*/) {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         FirebaseFirestore.setLoggingEnabled(true)
         val defaultOptions = FirebaseOptions.Builder()
@@ -100,152 +65,38 @@ class DifferentIntegrationTest {
             .setApiKey("test-api-key")
             .build()
         setupUser(userA, defaultOptions)
+    }
 
-//        val ourDispatcher = coroutineContext[ContinuationInterceptor];
-//        val ourScheduler1 = (ourDispatcher as TestDispatcher).scheduler;
-//        val ourScheduler2 = coroutineContext[TestCoroutineScheduler];
-//        println(
-//            "DEBUG ourDispatcher: $ourDispatcher (${
-//                "%x".format(
-//                    System.identityHashCode(
-//                        ourDispatcher
-//                    )
-//                )
-//            })"
-//        )
-//        println(
-//            "DEBUG ourScheduler1:  $ourScheduler1 (${
-//                "%x".format(
-//                    System.identityHashCode(
-//                        ourScheduler1
-//                    )
-//                )
-//            })"
-//        )
-//        println(
-//            "DEBUG ourScheduler2:  $ourScheduler2 (${
-//                "%x".format(
-//                    System.identityHashCode(
-//                        ourScheduler2
-//                    )
-//                )
-//            })"
-//        )
-        //println("DEBUG ourDispatcher class: ${ourDispatcher!!::class.java.name}")
-//        val vmDispatcher = userA.viewModel.viewModelScope.coroutineContext[ContinuationInterceptor]
-//        println("vm dispatcher: $vmDispatcher (${"%x".format(System.identityHashCode(vmDispatcher))})")
-//        println("vm dispatcher class: ${vmDispatcher!!::class.java.name}");
-////        (vmDispatcher as? TestDispatcher)?.let {
-////            println("vm scheduler: ${it.scheduler} (${"%x".format(System.identityHashCode(it.scheduler))})")
-////        }
-//        val vmD = userA.viewModel.viewModelScope.coroutineContext[ContinuationInterceptor]
-//        println("vm dispatcher: $vmD")
-//
-//        val vmScheduler = (vmD as? TestDispatcher)?.scheduler
-//        println("vm scheduler: $vmScheduler (${System.identityHashCode(vmScheduler)})")
-//        // println("test scheduler: $testScheduler (${System.identityHashCode(testScheduler)})")
-//        // println("same scheduler? ${vmScheduler === testScheduler}")
-//        println("vmD is TestDispatcher: ${vmD is TestDispatcher}")
-//
-//
-//
-//
-//        println("DEBUG someTest dispatcher main hash=${Dispatchers.Main.hashCode()} ${Dispatchers.Main}")
-//        println("DEBUG Main Dispatcher?: ${Dispatchers.Main}")
-        // println("DEBUG testScheduler=${this.testScheduler.hashCode()} ${this.testScheduler.toString()}");
-        // I wish this block was in setup
-
-        // Share User A's list with User B through the ViewModel (→ Functions emulator).
-        userA.viewModel.uiState.test {
-            println("DEBUG add userA list")
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+        // TODO are any of these async/suspend ?
+        println("DEBUG starting tearDown")
+        userA.app.delete()
+        clearEmulatorData()
+        println("DEBUG done with tearDown")
+    }
+    @Test
+    fun someTest() = runTest {
+        // test{} subscribes to uiState, activating the WhileSubscribed combine.
+        // awaitItem() can't be used here: it suspends (giving up the main thread),
+        // which prevents pumping the main looper that Firestore needs to deliver callbacks.
+        // Instead, we poll .value, which is valid once subscribed.
+        userA.viewModel.uiState.test(timeout = 15.seconds) {
             userA.viewModel.addList(userA.listName)
-            println("DEBUG draining")
-            val timeoutMs = 5000L
-            val startTime = System.currentTimeMillis()
-            while (userA.viewModel.uiState.value.lists.size == 0) {
-                if (System.currentTimeMillis() - startTime > timeoutMs) {
-                    // throw AssertionError("Timed out waiting for Firestore emulator callback")
-                    println("so sad, time is up")
-                    break;
-                }
 
-
-                // A. Give the real background gRPC threads a slice of real time to execute
+            val deadline = System.currentTimeMillis() + 15_000
+            while (userA.viewModel.uiState.value.lists.none { it.name == userA.listName }) {
+                check(System.currentTimeMillis() < deadline) { "Timed out waiting for list" }
                 Thread.sleep(50)
-                shadowOf(Looper.getMainLooper()).idle()  // WTF is this?
-                // advanceUntilIdle()
-                runUiThreadTasksIncludingDelayedTasks()  // WTF is this?
-                //println("DEBUG A lists ${userA.viewModel.uiState.value.lists}")
-
+                ShadowLooper.idleMainLooper()
             }
-            println("broke, trying Dispatchers.Default")
-            withContext(Dispatchers.Default) {
-                withTimeout(20000) {
-                    userA.viewModel.uiState.first { it.lists.isNotEmpty() }
-                    // println("huh")
-                }
-            }
-            println("time is up")
 
+            val listId = userA.viewModel.uiState.value.lists.first { it.isOwner }.id
             println("DEBUG drained")
             println("DEBUG A lists ${userA.viewModel.uiState.value.lists}")
-            val listId =
-                userA.viewModel.uiState.value.lists.first { it.isOwner }.id  // TODO can addList return the list and its id?
             println("DEBUG A got $listId")
-//	    println("DEBUG A selectList")
-//            userA.viewModel.selectList(listId)
-//	    println("DEBUG A shareList")
-//            userA.viewModel.shareList(userB.email)
-//
-//            println("DEBUG adding editor")
-//            // withTimeout(15.seconds) {
-//	          // 	userA.viewModel.errors.first { it == "Editor added" }  // what a horrifying way to verify!
-//            // }
-//
-//            // Wait for User B to see the shared list as an editor, then select it.
-//            withTimeout(15.seconds) {
-//		while (userB.viewModel.uiState.value.lists.none { !it.isOwner }) delay(50)
-//            }
-//            userB.viewModel.selectList(listId)
-//
-//
-//
-//        val listId = userA.viewModel.uiState.value.lists.first { it.isOwner }.id
-//
-//        userB.viewModel.uiState.test(timeout = 15.seconds) {
-//            // Drain until User B is observing the shared list with no items.
-//            var state = awaitItem()
-//            while (state.lists.none { it.id == listId } || state.uncheckedItems.isNotEmpty()) {
-//                state = awaitItem()
-//            }
-//
-//            // User A adds an item via the ViewModel (same path as the real UI).
-//            userA.viewModel.openAddDialog("")
-//            userA.viewModel.dialogState.value!!.onSave(
-//                ItemFields(name = "Milk", quantity = 2.0, checked = false)
-//            )
-//
-//            // User B observes the item appear as unchecked.
-//            while (state.uncheckedItems.isEmpty()) { state = awaitItem() }
-//            assertEquals(1, state.uncheckedItems.size)
-//            assertEquals("Milk", state.uncheckedItems.single().fields.name)
-//
-//            // User A checks the item.
-//            val addedItem = userA.viewModel.uiState.value.uncheckedItems.single()
-//            userA.viewModel.checkItem(addedItem)
-//
-//            // User B observes the item move to checked.
-//            while (state.checkedItems.isEmpty()) { state = awaitItem() }
-//
-//            assertEquals(1, state.checkedItems.size)
-//            assertEquals(0, state.uncheckedItems.size)
-//            val item = state.checkedItems.single()
-//            assertEquals("Milk", item.fields.name)
-//            assertEquals(2.0, item.fields.quantity)
-//            assertTrue(item.fields.checked)
-//
-//            cancelAndIgnoreRemainingEvents()
-//        }
+            cancelAndIgnoreRemainingEvents()
         }
         println("THROMER test exiting")
     }
@@ -270,16 +121,6 @@ class DifferentIntegrationTest {
                 FirestoreShoppingRepository(firestore, listId, clientId = UUID.randomUUID().toString())
             },
         )
-//        println("THROMER setupUser waiting for the user to have a list?")
-//        withTimeout(15.seconds) {
-//            while (testUser.viewModel.uiState.value.lists.none { it.isOwner }) delay(50)
-//        }
-//        // TODO: And what if it failed?
-//        println("THROMER setupUser selectList")
-//        testUser.viewModel.selectList(testUser.viewModel.uiState.value.lists.first { it.isOwner }.id)
-//        println("THROMER setupUser renameCurrentList")
-//        testUser.viewModel.renameCurrentList(testUser.listName)
-//        println("THROMER setupUser done")
     }
 
     private suspend fun signIn(app: FirebaseApp, email: String): User {
