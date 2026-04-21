@@ -3,7 +3,9 @@ package org.righteffort.ourgrocerylist.ui
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.functions.FirebaseFunctionsException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
@@ -32,6 +34,7 @@ import org.righteffort.ourgrocerylist.repository.ShoppingRepository
 import org.righteffort.ourgrocerylist.undo.UndoRedoManager
 import org.righteffort.ourgrocerylist.util.CsvImporter
 import org.righteffort.ourgrocerylist.util.CsvParseException
+import kotlin.coroutines.ContinuationInterceptor
 
 private val ITEM_COMPARATOR = compareBy<ShoppingItem> { it.fields.name.lowercase() }
 private const val TAG = "ShoppingViewModel"
@@ -101,6 +104,7 @@ class ShoppingViewModel(
             listRepository.observeLists()
                 .catch { e -> logAndEmitFatalError("Failed to observe lists", e) }
                 .collect { lists ->
+                    println("DEBUG view model observeLists lists=$lists")
                     val newIds = lists.map { it.id }.toSet()
 
                     // Create resources for newly discovered lists and start remote-change listeners.
@@ -125,6 +129,7 @@ class ShoppingViewModel(
                         val user = currentUserFlow.value
                         if (user != null) {
                             try {
+                                println("DEBUG creating Groceries default list")
                                 listRepository.createList(user, "Groceries")
                             } catch (e: Exception) {
                                 logAndEmitFatalError("Failed to create initial list", e)
@@ -192,6 +197,7 @@ class ShoppingViewModel(
     ) { (listId, items, undoState), lists, currentUser ->
         val currentList = lists.find { it.id == listId }
         val (checked, unchecked) = items.partition { it.fields.checked }
+        println("DEBUG maybe updating uistate with lists=$lists")
         UiState(
             uncheckedItems = unchecked.sortedWith(ITEM_COMPARATOR),
             checkedItems = checked.sortedWith(ITEM_COMPARATOR),
@@ -306,13 +312,22 @@ class ShoppingViewModel(
         val user = currentUserFlow.value ?: return
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
+        println("DEBUG launching but using what dispatcher and scheduler? context=${viewModelScope.coroutineContext.toString()}")
+        println("DEBUG addList main.immediate ${Dispatchers.Main.immediate.hashCode()} ${Dispatchers.Main.immediate}")
+
+        val svmDispatcher = viewModelScope.coroutineContext[ContinuationInterceptor]
+        println("svm dispatcher: $svmDispatcher (${"%x".format(System.identityHashCode(svmDispatcher))})")
+        println("svm dispatcher class: ${svmDispatcher!!::class.java.name}");
         viewModelScope.launch {
             try {
+                println("DEBUG i wish we could add")
                 val id = listRepository.createList(user, trimmed)
+                println("DEBUG created")
                 // Pre-warm resources and navigate immediately. observeItems startup is gated
                 // on _confirmedListIds, so no security-rules race even with the eager switch.
                 getOrCreateResources(id)
                 _currentListId.value = id
+                println("DEBUG created list name=$trimmed id=$id")
             } catch (e: Exception) {
                 logAndEmitError("Failed to create list", e)
             }
