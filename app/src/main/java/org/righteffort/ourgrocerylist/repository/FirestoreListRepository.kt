@@ -67,21 +67,21 @@ class FirestoreListRepository(
                 val ownedListener = firestore.collection("lists")
                     .whereEqualTo("owner.uid", user.uid)
                     .addSnapshotListener { snapshot, error ->
-                        println("DEBUG lists ownedListener callback error=$error on: ${Thread.currentThread().name}")
+                        println("DEBUG FLR lists ownedListener callback error=$error on: ${Thread.currentThread().name}")
                         if (error != null) { close(error); return@addSnapshotListener }
                         ownedDocs = snapshot?.documents ?: emptyList()
-                        println("DEBUG lists ownedListener ownedDocs=$ownedDocs")
-                        println("DEBUG first doc ${if (ownedDocs.isEmpty()) "nope" else ownedDocs.first().data}")
+                        println("DEBUG FLR lists ownedListener ownedDocs=$ownedDocs")
+                        println("DEBUG FLR first doc ${if (ownedDocs.isEmpty()) "nope" else ownedDocs.first().data}")
                         sendCombined()
                     }
 
                 val editorListener = firestore.collection("lists")
                     .whereNotEqualTo("editors.${user.uid}", null)
                     .addSnapshotListener { snapshot, error ->
-                        println("DEBUG lists editorListener error=$error callback on: ${Thread.currentThread().name}")
+                        println("DEBUG FLR lists editorListener error=$error callback on: ${Thread.currentThread().name}")
                         if (error != null) { close(error); return@addSnapshotListener }
                         editorDocs = snapshot?.documents ?: emptyList()
-                        println("DEBUG lists ownedListener editorDocs=$editorDocs")
+                        println("DEBUG FLR lists ownedListener editorDocs=$editorDocs")
                         sendCombined()
                     }
 
@@ -113,7 +113,10 @@ class FirestoreListRepository(
     }
 
     override suspend fun addEditor(listId: String, email: String) {
+        println("addEditor $listId $email calling emailToUid")
         val uid = callEmailToUid(email)
+        println("addEditor $listId $email called emailToUid")
+
         val ref = firestore.document("lists/$listId")
         firestore.runTransaction { transaction ->
             val doc = transaction.get(ref)

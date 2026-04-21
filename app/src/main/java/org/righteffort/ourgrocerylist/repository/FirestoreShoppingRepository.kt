@@ -23,7 +23,7 @@ class FirestoreShoppingRepository(
 
     override fun observeItems(): Flow<List<ShoppingItem>> = callbackFlow {
         val listener = collection.addSnapshotListener { snapshot, error ->
-            println("DEBUG items observe callback on: ${Thread.currentThread().name}")
+            println("DEBUG FSR items observe callback on: ${Thread.currentThread().name}")
             if (error != null) {
                 close(error)
                 return@addSnapshotListener
@@ -39,9 +39,9 @@ class FirestoreShoppingRepository(
     // of authorship, which would incorrectly trigger pruning for our own past writes.
     override fun observeRemotelyModifiedItemIds(): Flow<Set<String>> = callbackFlow {
         val listener = collection.addSnapshotListener { snapshot, error ->
-            println("DEBUG items remotely modified callback error=$error on: ${Thread.currentThread().name}")
+            println("DEBUG FSR items remotely modified callback error=$error on: ${Thread.currentThread().name}")
             if (error != null) {
-                println("DEBUG error non-null on well")
+                println("DEBUG FSR error non-null on well")
                 close(error)
                 return@addSnapshotListener
             }
@@ -55,7 +55,7 @@ class FirestoreShoppingRepository(
                 ?.toSet()
                 ?: emptySet()
             if (remoteIds.isNotEmpty()) trySend(remoteIds)
-            println("DEBUG items observe remoteIds=$remoteIds")
+            println("DEBUG FSR items observe remoteIds=$remoteIds")
         }
         awaitClose { listener.remove() }
     }

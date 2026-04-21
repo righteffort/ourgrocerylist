@@ -26,10 +26,12 @@ import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.FirestoreListRepository
 import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
 import org.righteffort.ourgrocerylist.ui.ShoppingViewModel
+import org.righteffort.ourgrocerylist.ui.UiState
 import org.righteffort.ourgrocerylist.util.setUpFirebaseEmulators
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.LooperMode
 import org.robolectric.shadows.ShadowLooper
 import java.net.HttpURLConnection
 import java.net.URL
@@ -44,6 +46,7 @@ class TestApp2 : Application()
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(application = TestApp2::class)
+@LooperMode(LooperMode.Mode.INSTRUMENTATION_TEST)
 class DifferentIntegrationTest {
 
     private class TestUser(val email: String, val listName: String, val appName: String) {
@@ -73,26 +76,17 @@ class DifferentIntegrationTest {
         // TODO are any of these async/suspend ?
         println("DEBUG starting tearDown")
         userA.app.delete()
-        clearEmulatorData()
+        //clearEmulatorData()
         println("DEBUG done with tearDown")
     }
+
     @Test
     fun someTest() = runTest {
-        // test{} subscribes to uiState, activating the WhileSubscribed combine.
-        // awaitItem() can't be used here: it suspends (giving up the main thread),
-        // which prevents pumping the main looper that Firestore needs to deliver callbacks.
-        // Instead, we poll .value, which is valid once subscribed.
         userA.viewModel.uiState.test(timeout = 15.seconds) {
             userA.viewModel.addList(userA.listName)
-
-            val deadline = System.currentTimeMillis() + 15_000
-            while (userA.viewModel.uiState.value.lists.none { it.name == userA.listName }) {
-                check(System.currentTimeMillis() < deadline) { "Timed out waiting for list" }
-                Thread.sleep(50)
-                ShadowLooper.idleMainLooper()
-            }
-
-            val listId = userA.viewModel.uiState.value.lists.first { it.isOwner }.id
+            var state: UiState
+            do { state = awaitItem() } while (state.lists.none { it.name == userA.listName })
+            val listId = state.lists.first { it.isOwner }.id
             println("DEBUG drained")
             println("DEBUG A lists ${userA.viewModel.uiState.value.lists}")
             println("DEBUG A got $listId")
@@ -111,7 +105,7 @@ class DifferentIntegrationTest {
                 .setLocalCacheSettings(MemoryCacheSettings.newBuilder().build())
                 .build()
         }
-        val functions = FirebaseFunctions.getInstance(testUser.app)
+        val functions = FirebaseFunctions.getInstance(testUser.app, "us-west1")
         testUser.user = signIn(testUser.app, testUser.email)
         val userFlow = MutableStateFlow<User?>(testUser.user)
         testUser.viewModel = ShoppingViewModel(
