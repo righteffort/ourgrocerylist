@@ -29,6 +29,7 @@ class FirestoreShoppingRepository(
                 return@addSnapshotListener
             }
             val items = snapshot?.documents?.mapNotNull { it.toShoppingItem() } ?: emptyList()
+            println("DEBUG FSR items observe items=$items")
             trySend(items)
         }
         awaitClose { listener.remove() }
@@ -71,7 +72,9 @@ class FirestoreShoppingRepository(
     }
 
     private suspend fun writeItem(id: String, fields: ItemFields) {
+        println("DEBUG FSR writeItem id=$id fields=$fields")
         collection.document(id).set(itemToFirestoreData(fields, clientId)).await()
+        println("DEBUG FSR writeItem completed id=$id")
     }
 
     private fun DocumentSnapshot.toShoppingItem(): ShoppingItem? =

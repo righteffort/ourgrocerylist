@@ -197,7 +197,7 @@ class ShoppingViewModel(
     ) { (listId, items, undoState), lists, currentUser ->
         val currentList = lists.find { it.id == listId }
         val (checked, unchecked) = items.partition { it.fields.checked }
-        println("DEBUG SVM maybe updating uistate with lists=$lists")
+        println("DEBUG SVM maybe updating uistate listId=$listId items=$items lists=$lists")
         UiState(
             uncheckedItems = unchecked.sortedWith(ITEM_COMPARATOR),
             checkedItems = checked.sortedWith(ITEM_COMPARATOR),
@@ -439,7 +439,7 @@ class ShoppingViewModel(
                 listRepository.addEditor(listId, email)
                 _shareListDialogState.value = null
                 _errors.tryEmit("Editor added")
-                print("shared some list with $email")
+                println("shared some list with $email")
             } catch (e: Exception) {
                 println("shared some list failed $email $e")
                 Log.e(TAG, "Failed to add editor", e)
@@ -452,9 +452,11 @@ class ShoppingViewModel(
 
     private fun applyCommand(command: Command) {
         val listId = _currentListId.value ?: return
+        println("DEBUG SVM applyCommand $command listId=$listId")
         viewModelScope.launch {
             try {
                 getOrCreateResources(listId).undoRedoManager.execute(command)
+                println("DEBUG SVM applyCommand completed $command")
             } catch (e: Exception) {
                 logAndEmitError("Command failed: ${command::class.simpleName}", e)
             }
