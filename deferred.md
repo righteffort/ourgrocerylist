@@ -1,4 +1,5 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
+- make it easy to switch between prod, emulator via 127.0.0.1, emulator via magic ip address
 - import trader joe's fails weirdly and silently (partial import)
 - spurious permission denied when importing list but import succeeds
 - adopt timber or something so we can drop printlns in prod and see Log.d
@@ -104,6 +105,8 @@ These are hygiene issues that may have been missed
 - review for garbage unit tests (e.g. that just restate the implementation w/mocks instead of the effects)
 
 These aspects might never be implemented
+- crashlytics
+- CICD
 - build error reporting
 - integration tests add test users to firestore whitelist, though realistically that means editing the string form of the rules one way or another
 - user-selected CSV import headers

@@ -7,18 +7,23 @@ import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.righteffort.ourgrocerylist.model.ItemFields
+import org.righteffort.ourgrocerylist.rules.TimberTestRule
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
+import timber.log.Timber
 import kotlin.time.Duration.Companion.seconds
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = IntegrationTestApp::class)
 @LooperMode(LooperMode.Mode.INSTRUMENTATION_TEST)
 class SharedListIntegrationTest {
+    @get:Rule
+    val timberRule = TimberTestRule()
 
     private val userA =
         TestUser(email = "test1@test.invalid", listName = "User A List", appName = "userA")
@@ -27,6 +32,7 @@ class SharedListIntegrationTest {
 
     @Before
     fun setUp() = runTest {
+        Timber.d("does it work setUp")
         clearEmulatorData()
         val defaultOptions = FirebaseOptions.Builder()
             .setProjectId(googleServices.projectId)
@@ -41,6 +47,7 @@ class SharedListIntegrationTest {
 
     @After
     fun tearDown() {
+        Timber.d("does it work tearDown")
         // TODO are any of these async/suspend ?
         println("DEBUG starting tearDown")
         userA.app.delete()
@@ -51,6 +58,7 @@ class SharedListIntegrationTest {
 
     @Test
     fun `user A adds item and user B sees it`() = runTest {
+        Timber.d("does it work test")
         turbineScope {
             val turbineA = userA.viewModel.uiState.testIn(backgroundScope, timeout = 15.seconds)
             val turbineB = userB.viewModel.uiState.testIn(backgroundScope, timeout = 15.seconds)

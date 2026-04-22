@@ -6,6 +6,10 @@ Obey CLAUDE.md
 
 Ask for clarification if anything is unclear.
 
+**Assume the code works**: When a test for a complex scenario appears soundly written but continues to fail, the cause may be a race condition or timing issue *in the code under test*, not in the test itself. Escalate to diagnosing the production code rather than tightening drain conditions further.
+
+**Diagnostic logging for complex failures**: When a drain times out unexpectedly, add `println` statements before and inside the drain to print the current `state` on each iteration. This quickly reveals whether items are arriving at all, what their content is, and where the flow is stalling.
+
 ## Verification
 
 Run only the target test class after writing tests:
@@ -21,6 +25,29 @@ Run only the target test class after writing tests:
 ```kotlin
 while (stateA.uncheckedItems.isEmpty()) { stateA = turbineA.awaitItem() }
 ```
+
+**`while` vs `do-while`**: Once `state` has been initialized by any prior `awaitItem()` call, use `while (condition) { state = awaitItem() }` — never `do { state = awaitItem() } while (condition)`. The do-while always consumes one item even when the condition is already satisfied, causing a spurious timeout if no further emission arrives. The only valid use of do-while is the *first* drain in a test where `state` is not yet initialized:
+```kotlin
+// First drain — state uninitialized, do-while is required
+var state: UiState
+do { state = awaitItem() } while (state.lists.none { it.name == "Groceries" })
+
+// All subsequent drains — state is initialized, use while
+while (state.currentListName != "Groceries") { state = awaitItem() }
+```
+
+**Compound drain for list activation**: When waiting for a list to become active (via `addList` or `selectList`), drain on *both* the list appearing in `state.lists` AND `state.currentListName` matching. A single-condition drain can exit before `_confirmedListIds` has been updated, leaving `observeItems` inactive and causing subsequent item drains to time out:
+```kotlin
+// Wrong — may exit before observeItems is active for the list
+while (state.lists.none { it.name == "My List" }) { state = awaitItem() }
+
+// Correct
+while (state.lists.none { it.name == "My List" } || state.currentListName != "My List") {
+    state = awaitItem()
+}
+```
+
+**`addList` auto-switches**: `addList()` sets `_currentListId` to the new list internally. Do not call `selectList(id)` immediately after `addList` for the same list. If `_currentListId` is already that value, `StateFlow` deduplicates and emits nothing; any subsequent drain will time out.
 
 **Multi-user turbine setup**:
 ```kotlin

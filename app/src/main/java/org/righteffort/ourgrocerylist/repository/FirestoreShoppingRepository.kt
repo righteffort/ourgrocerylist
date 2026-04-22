@@ -10,6 +10,7 @@ import kotlinx.coroutines.tasks.await
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.model.ShoppingItem
+import timber.log.Timber
 
 class FirestoreShoppingRepository(
     private val firestore: FirebaseFirestore,
@@ -22,27 +23,31 @@ class FirestoreShoppingRepository(
     override fun newItemId(): String = collection.document().id
 
     override fun observeItems(): Flow<List<ShoppingItem>> = callbackFlow {
+        Timber.d("RACE_DEBUG FSR observeItems starting listener collection=${collection.path}")
         val listener = collection.addSnapshotListener { snapshot, error ->
-            // println("DEBUG FSR items observe callback on: ${Thread.currentThread().name}")
             if (error != null) {
+                Timber.d("DEBUG FSR observeItems error=$error  collection=${collection.path}")
                 close(error)
                 return@addSnapshotListener
             }
             val items = snapshot?.documents?.mapNotNull { it.toShoppingItem() } ?: emptyList()
-            // println("DEBUG FSR items observe items=$items")
+            Timber.d("DEBUG FSR items observe items=$items collection=${collection.path}")
             trySend(items)
         }
-        awaitClose { listener.remove() }
+        awaitClose {
+            Timber.d("DEBUG FSR observeItems awaitClose — listener removed collection=${collection.path}")
+            listener.remove()
+        }
     }
 
     // Emits the IDs of items modified or deleted by other clients. ADDED is excluded
     // because the initial snapshot reports all existing documents as ADDED regardless
     // of authorship, which would incorrectly trigger pruning for our own past writes.
     override fun observeRemotelyModifiedItemIds(): Flow<Set<String>> = callbackFlow {
+        Timber.d("RACE_DEBUG FSR observeRemotelyModifiedItemIds starting listener collection=${collection.path}")
         val listener = collection.addSnapshotListener { snapshot, error ->
-            // println("DEBUG FSR items remotely modified callback error=$error on: ${Thread.currentThread().name}")
             if (error != null) {
-                // println("DEBUG FSR error non-null on well")
+                Timber.d("DEBUG FSR error non-null oh well collection=${collection.path}")
                 close(error)
                 return@addSnapshotListener
             }
@@ -56,9 +61,12 @@ class FirestoreShoppingRepository(
                 ?.toSet()
                 ?: emptySet()
             if (remoteIds.isNotEmpty()) trySend(remoteIds)
-            // println("DEBUG FSR items observe remoteIds=$remoteIds")
+            Timber.d("DEBUG FSR items observe remoteIds=$remoteIds collection=${collection.path}")
         }
-        awaitClose { listener.remove() }
+        awaitClose {
+            Timber.d("DEBUG FSR observeRemotelyModifiedItemIds awaitClose — listener removed collection=${collection.path}")
+            listener.remove()
+        }
     }
 
     override suspend fun apply(command: Command) {
@@ -72,9 +80,9 @@ class FirestoreShoppingRepository(
     }
 
     private suspend fun writeItem(id: String, fields: ItemFields) {
-        // println("DEBUG FSR writeItem id=$id fields=$fields")
+        Timber.d("DEBUG FSR writeItem id=$id fields=$fields")
         collection.document(id).set(itemToFirestoreData(fields, clientId)).await()
-        // println("DEBUG FSR writeItem completed id=$id")
+        Timber.d("DEBUG FSR writeItem completed id=$id")
     }
 
     private fun DocumentSnapshot.toShoppingItem(): ShoppingItem? =

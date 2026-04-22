@@ -103,6 +103,7 @@ dependencies {
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
     implementation(libs.commons.csv)
+    implementation(libs.timber)
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.bundles.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

@@ -1,16 +1,13 @@
 package org.righteffort.ourgrocerylist.ui
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -23,10 +20,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ItemFields
+import org.righteffort.ourgrocerylist.model.ListMetadata
 import org.righteffort.ourgrocerylist.model.ShoppingItem
 import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.ListRepository
@@ -34,10 +33,10 @@ import org.righteffort.ourgrocerylist.repository.ShoppingRepository
 import org.righteffort.ourgrocerylist.undo.UndoRedoManager
 import org.righteffort.ourgrocerylist.util.CsvImporter
 import org.righteffort.ourgrocerylist.util.CsvParseException
+import timber.log.Timber
 import kotlin.coroutines.ContinuationInterceptor
 
 private val ITEM_COMPARATOR = compareBy<ShoppingItem> { it.fields.name.lowercase() }
-private const val TAG = "ShoppingViewModel"
 
 class ShoppingViewModel(
     private val currentUserFlow: StateFlow<User?>,
@@ -62,9 +61,13 @@ class ShoppingViewModel(
     // collector. observeItems is only started for a list once its ID
     // appears here, preventing a race between list creation and
     // observing list mutations. It appears that observing can win the
-    // race resulting in a null error from the rules engine. Maybe.
+    // race resulting in permission denied from the rules engine. Maybe.
     // _currentListId is set immediately for responsive UX.
     private val _confirmedListIds = MutableStateFlow<Set<String>>(emptySet())
+
+    // Populated by the single observeLists() subscription in init. Always updated after
+    // _confirmedListIds so uiState never sees a list id that isn't yet confirmed.
+    private val _lists = MutableStateFlow<List<ListMetadata>>(emptyList())
 
     private val _dialogState = MutableStateFlow<ItemDialogState?>(null)
     val dialogState: StateFlow<ItemDialogState?> = _dialogState.asStateFlow()
@@ -96,7 +99,7 @@ class ShoppingViewModel(
     init {
         viewModelScope.launch {
             appErrors.collect { message ->
-                Log.e(TAG, "Fatal app init error: $message")
+                Timber.e("Fatal app init error: $message")
                 _fatalError.value = message
             }
         }
@@ -104,7 +107,7 @@ class ShoppingViewModel(
             listRepository.observeLists()
                 .catch { e -> logAndEmitFatalError("Failed to observe lists", e) }
                 .collect { lists ->
-                    // println("DEBUG SVM view model observeLists lists=$lists")
+                    Timber.d("DEBUG SVM view model observeLists lists=$lists")
                     val newIds = lists.map { it.id }.toSet()
 
                     // Create resources for newly discovered lists and start remote-change listeners.
@@ -123,18 +126,23 @@ class ShoppingViewModel(
 
                     // Confirm all currently visible lists so observeItems can start for them.
                     _confirmedListIds.value = newIds
+                    Timber.v("RACE_DEBUG setting _confirmedListIds.value=${newIds}")
 
                     // If no lists exist (new user or all lists deleted), recreate the default.
+                    // TODO: there seems to be a race somewhere such that we can arrive here twice
+                    // and create two 'default' lists
                     if (lists.isEmpty()) {
                         val user = currentUserFlow.value
                         if (user != null) {
                             try {
-                                // println("DEBUG SVM creating Groceries default list")
+                                Timber.d("DEBUG SVM creating Groceries default list")
                                 listRepository.createList(user, "Groceries")
                             } catch (e: Exception) {
                                 logAndEmitFatalError("Failed to create initial list", e)
                             }
                         }
+                        Timber.v("RACE_DEBUG lists empty, setting _lists=${lists.map{it.id}}")
+                        _lists.value = lists
                         return@collect
                     }
 
@@ -144,6 +152,8 @@ class ShoppingViewModel(
                         val selected = lists.firstOrNull { it.isOwner } ?: lists.first()
                         _currentListId.value = selected.id
                     }
+                    Timber.v("RACE_DEBUG lists non-empty, setting _lists=${lists.map{it.id}}")
+                    _lists.value = lists
                 }
         }
     }
@@ -166,6 +176,7 @@ class ShoppingViewModel(
         combine(_currentListId.filterNotNull(), _confirmedListIds) { listId, confirmed ->
             listId to confirmed
         }.flatMapLatest { (listId, confirmed) ->
+            Timber.v("RACE_DEBUG listId=${listId} confirmed=${confirmed}")
             // confirmed is empty while signed out or between sessions. Don't create resources
             // and Firestore listeners, just wait for the next emission.
             if (confirmed.isEmpty()) return@flatMapLatest flow { awaitCancellation() }
@@ -174,6 +185,8 @@ class ShoppingViewModel(
                 combine(
                     resources.repository.observeItems()
                         .catch { e ->
+                            println("DEBUG SVM REALLY REALLY DEAD")
+                            Timber.e(e, "DEBUG SVM observeItems terminated with error for listId=$listId — items observer is now dead")
                             logAndEmitFatalError("Failed to observe items", e)
                             emit(emptyList())
                         },
@@ -182,22 +195,20 @@ class ShoppingViewModel(
             } else {
                 // List not yet Firestore-visible; emit empty items and wait.
                 // flatMapLatest will cancel this once _confirmedListIds includes listId.
+                Timber.v("RACE_DEBUG empty list listId=${listId}")
                 flow {
-                    emit(Triple(listId, emptyList<ShoppingItem>(), resources.undoRedoManager.state.value))
+                    emit(Triple(listId, emptyList(), resources.undoRedoManager.state.value))
                     awaitCancellation()
                 }
             }
         },
-        listRepository.observeLists()
-            .catch { e ->
-                logAndEmitFatalError("Failed to observe lists in uiState", e)
-                emit(emptyList())
-            },
+        _lists,
         currentUserFlow,
     ) { (listId, items, undoState), lists, currentUser ->
         val currentList = lists.find { it.id == listId }
+        Timber.v("RACE_DEBUG flow that manages UiState(?) lists=${lists.map{it.id}} currentList=${currentList?.id}")
         val (checked, unchecked) = items.partition { it.fields.checked }
-        // println("DEBUG SVM maybe updating uistate listId=$listId items=$items lists=$lists")
+        Timber.d("DEBUG SVM constructing UiState listId=$listId items=$items lists=$lists")
         UiState(
             uncheckedItems = unchecked.sortedWith(ITEM_COMPARATOR),
             checkedItems = checked.sortedWith(ITEM_COMPARATOR),
@@ -312,22 +323,22 @@ class ShoppingViewModel(
         val user = currentUserFlow.value ?: return
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
-        // println("DEBUG SVM launching but using what dispatcher and scheduler? context=${viewModelScope.coroutineContext.toString()}")
-        // println("DEBUG SVM addList main.immediate ${Dispatchers.Main.immediate.hashCode()} ${Dispatchers.Main.immediate}")
+        Timber.d("DEBUG SVM launching but using what dispatcher and scheduler? context=${viewModelScope.coroutineContext}")
+        Timber.d("DEBUG SVM addList main.immediate ${Dispatchers.Main.immediate.hashCode()} ${Dispatchers.Main.immediate}")
 
         val svmDispatcher = viewModelScope.coroutineContext[ContinuationInterceptor]
-        // println("svm dispatcher: $svmDispatcher (${"%x".format(System.identityHashCode(svmDispatcher))})")
-        // println("svm dispatcher class: ${svmDispatcher!!::class.java.name}");
+        Timber.d("svm dispatcher: $svmDispatcher (${"%x".format(System.identityHashCode(svmDispatcher))})")
+        Timber.d("svm dispatcher class: ${svmDispatcher!!::class.java.name}")
         viewModelScope.launch {
             try {
-                // println("DEBUG SVM in ShoppingViewModel.addList launch i wish we could add")
+                Timber.d("DEBUG SVM in ShoppingViewModel.addList launch i wish we could add")
                 val id = listRepository.createList(user, trimmed)
-                // println("DEBUG SVM in ShoppingViewModel.addList call listRepository.createList")
+                Timber.d("RACE_DEBUG in ShoppingViewModel.addList call getOrCreateResource listId=${id}")
                 // Pre-warm resources and navigate immediately. observeItems startup is gated
                 // on _confirmedListIds, so no security-rules race even with the eager switch.
                 getOrCreateResources(id)
                 _currentListId.value = id
-                // println("DEBUG SVM created list name=$trimmed id=$id")
+                Timber.d("DEBUG SVM created list name=$trimmed id=$id")
             } catch (e: Exception) {
                 logAndEmitError("Failed to create list", e)
             }
@@ -432,17 +443,17 @@ class ShoppingViewModel(
     fun dismissShareListDialog() { _shareListDialogState.value = null }
 
     fun shareList(email: String) {
-        // println("sharing some list with $email")
+        Timber.d("sharing some list with $email")
         val listId = _currentListId.value ?: return
         viewModelScope.launch {
             try {
                 listRepository.addEditor(listId, email)
                 _shareListDialogState.value = null
                 _errors.tryEmit("Editor added")
-                // println("shared some list with $email")
+                Timber.d("shared some list with $email")
             } catch (e: Exception) {
-                // println("shared some list failed $email $e")
-                Log.e(TAG, "Failed to add editor", e)
+                Timber.d("shared some list failed $email $e")
+                Timber.e(e, "Failed to add editor")
                 _shareListDialogState.value = ShareListDialogState(errorMessage = e.message ?: "Failed to add editor")
             }
         }
@@ -452,11 +463,11 @@ class ShoppingViewModel(
 
     private fun applyCommand(command: Command) {
         val listId = _currentListId.value ?: return
-        // println("DEBUG SVM applyCommand $command listId=$listId")
+        Timber.d("DEBUG SVM applyCommand $command listId=$listId")
         viewModelScope.launch {
             try {
                 getOrCreateResources(listId).undoRedoManager.execute(command)
-                // println("DEBUG SVM applyCommand completed $command")
+                Timber.d("DEBUG SVM applyCommand completed $command")
             } catch (e: Exception) {
                 logAndEmitError("Command failed: ${command::class.simpleName}", e)
             }
@@ -464,19 +475,19 @@ class ShoppingViewModel(
     }
 
     private fun logAndEmitError(message: String, e: Throwable) {
-        Log.e(TAG, message, e)
+        Timber.e(e, message)
         _errors.tryEmit(e.message ?: message)
     }
 
     private fun logAndEmitFatalError(message: String, e: Throwable) {
         if (e.message != null) {
-            Log.e(TAG, e.message!!)
+            Timber.e(e.message!!)
         }
         // TODO: should push this into Firebase code probably
         if (e is FirebaseFunctionsException && e.details != null) {
-             Log.e(TAG, e.details.toString())
+             Timber.e(e.details.toString())
         }
-        Log.e(TAG, message, e)
+        Timber.e(e, message)
         _fatalError.value = e.message ?: message
     }
 }

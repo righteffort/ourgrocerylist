@@ -11,8 +11,10 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.righteffort.ourgrocerylist.rules.TimberTestRule
 import org.righteffort.ourgrocerylist.ui.UiState
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -24,6 +26,8 @@ import kotlin.time.Duration.Companion.seconds
 @Config(application = IntegrationTestApp::class)
 @LooperMode(LooperMode.Mode.INSTRUMENTATION_TEST)
 class DifferentIntegrationTest {
+    @get:Rule
+    val timberRule = TimberTestRule()
 
     private val userA = TestUser(email = "test1@test.invalid", listName = "User A List", appName = "userA")
 

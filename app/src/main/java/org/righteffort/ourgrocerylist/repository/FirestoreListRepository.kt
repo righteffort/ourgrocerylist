@@ -6,7 +6,6 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.tasks.await
@@ -15,6 +14,7 @@ import org.righteffort.ourgrocerylist.model.User
 import com.google.firebase.Firebase
 import com.google.firebase.functions.FirebaseFunctions
 import org.righteffort.ourgrocerylist.appFunctions
+import timber.log.Timber
 
 class FirestoreListRepository(
     private val firestore: FirebaseFirestore,
@@ -61,27 +61,28 @@ class FirestoreListRepository(
                     )
                         .distinctBy { it.id }
                         .sortedWith(compareBy({ !it.isOwner }, { it.name.lowercase() }))
+                    Timber.v("RACE_DEBUG trySend ${all.map{it.id}}")
                     trySend(all)
                 }
 
                 val ownedListener = firestore.collection("lists")
                     .whereEqualTo("owner.uid", user.uid)
                     .addSnapshotListener { snapshot, error ->
-                        // println("DEBUG FLR lists ownedListener callback error=$error on: ${Thread.currentThread().name}")
+                        Timber.v("DEBUG FLR lists ownedListener callback error=$error on: ${Thread.currentThread().name}")
                         if (error != null) { close(error); return@addSnapshotListener }
                         ownedDocs = snapshot?.documents ?: emptyList()
-                        // println("DEBUG FLR lists ownedListener ownedDocs=$ownedDocs")
-                        // println("DEBUG FLR first doc ${if (ownedDocs.isEmpty()) "nope" else ownedDocs.first().data}")
+                        Timber.d("DEBUG FLR lists ownedListener ownedDocs=$ownedDocs")
+                        Timber.d("DEBUG FLR doc len ${ownedDocs.size} first doc ${if (ownedDocs.isEmpty()) "nope" else ownedDocs.first().data}")
                         sendCombined()
                     }
 
                 val editorListener = firestore.collection("lists")
                     .whereNotEqualTo("editors.${user.uid}", null)
                     .addSnapshotListener { snapshot, error ->
-                        // println("DEBUG FLR lists editorListener error=$error callback on: ${Thread.currentThread().name}")
+                        Timber.v("DEBUG FLR lists editorListener error=$error callback on: ${Thread.currentThread().name}")
                         if (error != null) { close(error); return@addSnapshotListener }
                         editorDocs = snapshot?.documents ?: emptyList()
-                        // println("DEBUG FLR lists ownedListener editorDocs=$editorDocs")
+                        Timber.d("DEBUG FLR lists editorListener editorDocs=$editorDocs")
                         sendCombined()
                     }
 
@@ -113,9 +114,9 @@ class FirestoreListRepository(
     }
 
     override suspend fun addEditor(listId: String, email: String) {
-        // println("addEditor $listId $email calling emailToUid")
+        Timber.v("DEBUG addEditor $listId $email calling emailToUid")
         val uid = callEmailToUid(email)
-        // println("addEditor $listId $email called emailToUid")
+        Timber.v("DEBUG addEditor $listId $email called emailToUid")
 
         val ref = firestore.document("lists/$listId")
         firestore.runTransaction { transaction ->
