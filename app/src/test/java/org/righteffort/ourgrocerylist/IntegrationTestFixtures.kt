@@ -2,12 +2,14 @@ package org.righteffort.ourgrocerylist
 
 import android.app.Application
 import com.google.android.gms.tasks.Task
+import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FirebaseFirestoreSettings
-import com.google.firebase.firestore.MemoryCacheSettings
+import com.google.firebase.firestore.firestore
+import com.google.firebase.firestore.firestoreSettings
+import com.google.firebase.firestore.persistentCacheSettings
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.tasks.await
@@ -18,6 +20,7 @@ import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
 import org.righteffort.ourgrocerylist.ui.ShoppingViewModel
 import org.righteffort.ourgrocerylist.util.setUpFirebaseEmulators
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.shadows.ShadowLog
 import org.robolectric.shadows.ShadowLooper
 import java.io.File
 import java.net.HttpURLConnection
@@ -56,16 +59,18 @@ internal class TestUser(val email: String, val listName: String, val appName: St
 }
 
 internal suspend fun setupUser(testUser: TestUser, options: FirebaseOptions) {
+    // Optional: Verbose Firestore SDK logging.
+    // ShadowLog.stream = System.out  // pipe logs to stdout
+    // FirebaseFirestore.setLoggingEnabled(true)
     testUser.app = FirebaseApp.initializeApp(
         RuntimeEnvironment.getApplication(),
         options,
         testUser.appName,
     )
     setUpFirebaseEmulators(testUser.app)
-    val firestore = FirebaseFirestore.getInstance(testUser.app).apply {
-        firestoreSettings = FirebaseFirestoreSettings.Builder()
-            .setLocalCacheSettings(MemoryCacheSettings.newBuilder().build())
-            .build()
+    val firestore= Firebase.firestore(testUser.app)
+    firestore.firestoreSettings = firestoreSettings {
+        setLocalCacheSettings(persistentCacheSettings {})
     }
     val functions = FirebaseFunctions.getInstance(testUser.app, "us-west1")
     testUser.user = signIn(testUser.app, testUser.email)
@@ -92,17 +97,21 @@ internal suspend fun signIn(app: FirebaseApp, email: String): User {
 
 internal fun clearEmulatorData() {
     fun delete(url: String) {
-        val conn = URL(url).openConnection() as HttpURLConnection
-        try {
-            conn.requestMethod = "DELETE"
-            conn.connect()
-            val status = conn.responseCode
-            check(status == HttpURLConnection.HTTP_OK) {
-                "DELETE $url failed with status $status"
+        var lastStatus = -1
+        repeat(4) { attempt ->
+            if (attempt > 0) Thread.sleep(50L * (1 shl (attempt - 1)))
+            val conn = URL(url).openConnection() as HttpURLConnection
+            try {
+                conn.requestMethod = "DELETE"
+                conn.connect()
+                lastStatus = conn.responseCode
+                if (lastStatus == HttpURLConnection.HTTP_OK) return
+                check(lastStatus in 400..599) { "DELETE $url failed with status $lastStatus" }
+            } finally {
+                conn.disconnect()
             }
-        } finally {
-            conn.disconnect()
         }
+        error("DELETE $url failed with status $lastStatus after 4 attempts")
     }
     val projectId = googleServices.projectId
     delete("http://127.0.0.1:8080/emulator/v1/projects/$projectId/databases/(default)/documents")

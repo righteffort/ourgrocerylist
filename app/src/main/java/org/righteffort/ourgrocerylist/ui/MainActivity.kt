@@ -1,7 +1,6 @@
 package org.righteffort.ourgrocerylist.ui
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -16,8 +15,7 @@ import kotlinx.coroutines.launch
 import org.righteffort.ourgrocerylist.OurGroceryListApp
 import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
 import org.righteffort.ourgrocerylist.ui.theme.OurGroceryListTheme
-
-private const val TAG = "MainActivity"
+import timber.log.Timber
 
 class MainActivity : ComponentActivity() {
 
@@ -48,7 +46,7 @@ class MainActivity : ComponentActivity() {
             try {
                 signInAndInitialize(app)
             } catch (e: Exception) {
-                Log.e(TAG, "Auth/list initialization failed", e)
+                Timber.e(e, "Auth/list initialization failed")
                 app.internalInitErrors.emit(e.message ?: "Initialization failed")
             }
         }
@@ -86,7 +84,7 @@ class MainActivity : ComponentActivity() {
                 // _currentUser is cleared by the auth state listener on signOut().
                 signInAndInitialize(app)
             } catch (e: Exception) {
-                Log.e(TAG, "Re-authentication after sign-out failed", e)
+                Timber.e(e, "Re-authentication after sign-out failed")
                 app.internalInitErrors.emit(e.message ?: "Re-authentication failed")
             }
         }

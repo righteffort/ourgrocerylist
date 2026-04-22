@@ -5,7 +5,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /lists/{listId} {
-      function debug(x) { return x; }  // Comment out if we want debug output in dev
+      // function debug(x) { return x; }  // Comment out if we want debug output in dev
 
       // Remove when we want to make public
       function isAllowedUser() {
@@ -54,7 +54,13 @@ service cloud.firestore {
       function hasAccessViaList() {
         // The get call is required to get the ACLs on the list --
         // resource.data would be the item itself.
-        let data = get(/databases/$(database)/documents/lists/$(listId)).data;
+        // Guard against get() returning null when the list document hasn't been
+        // committed to the server yet; accessing .data on null causes a rules error.
+	let asdf = debug("hasAccessViaList ... fetching data");
+        let listDoc = debug(get(/databases/$(database)/documents/lists/$(listId)));
+        let data = debug(listDoc != null ? listDoc.data : null);
+	// let data = debug(get(/databases/$(database)/documents/lists/$(listId)).data);
+	let asdf2 = debug("hasAccessViaList ... fetched data");
         let result =
             (debug("hasAccessViaList " + request.method + " " + string(request.path) + " " + (request.auth == null ? "null" : request.auth.token.email)).size() >= 0) &&
             request.auth != null &&

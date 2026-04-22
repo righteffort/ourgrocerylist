@@ -7,18 +7,23 @@ import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.righteffort.ourgrocerylist.model.ItemFields
+import org.righteffort.ourgrocerylist.rules.TimberTestRule
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
+import timber.log.Timber
 import kotlin.time.Duration.Companion.seconds
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = IntegrationTestApp::class)
 @LooperMode(LooperMode.Mode.INSTRUMENTATION_TEST)
-class SharedListIntegrationTest {
+class FirstMultiUserIntegrationTest {
+    @get:Rule
+    val timberRule = TimberTestRule()
 
     private val userA =
         TestUser(email = "test1@test.invalid", listName = "User A List", appName = "userA")
@@ -35,18 +40,18 @@ class SharedListIntegrationTest {
             .build()
         setupUser(userA, defaultOptions)
         setupUser(userB, defaultOptions)
-        println("DEBUG setup done")
+        Timber.v("DEBUG setup done")
 
     }
 
     @After
     fun tearDown() {
         // TODO are any of these async/suspend ?
-        println("DEBUG starting tearDown")
+        Timber.v("DEBUG starting tearDown")
         userA.app.delete()
         userB.app.delete()
         clearEmulatorData()
-        println("DEBUG done with tearDown")
+        Timber.v("DEBUG done with tearDown")
     }
 
     @Test
@@ -62,13 +67,13 @@ class SharedListIntegrationTest {
             while (stateA.lists.none { it.name == userA.listName }) {
                 stateA = turbineA.awaitItem()
             }
-            println("fancy test A got ${userA.listName} lists=${stateA.lists}")
+            Timber.v("fancy test A got ${userA.listName} lists=${stateA.lists}")
 
             var stateB = turbineB.awaitItem()
             while (stateB.lists.none { it.name == userB.listName }) {
                 stateB = turbineB.awaitItem()
             }
-            println("fancy test B got ${userB.listName} lists=${stateB.lists}")
+            Timber.v("fancy test B got ${userB.listName} lists=${stateB.lists}")
 
             val listId = stateA.lists.first { it.isOwner }.id
             userA.viewModel.selectList(listId)
@@ -77,21 +82,21 @@ class SharedListIntegrationTest {
 //            withTimeout(15.seconds) {
 //                userA.viewModel.errors.first { it == "Editor added" }  // TODO it's hard to imagine a worse way to check the state
 //            }
-//            println("fancy test saw editor added message, what's next?")
+//            Timber.v("fancy test saw editor added message, what's next?")
 
             // Drain until User B sees the shared list as an editor.
             stateB = turbineB.awaitItem()
             while (stateB.lists.none { !it.isOwner }) {
                 stateB = turbineB.awaitItem()
             }
-            println("fancy test B sees shared list or its own list or something")
+            Timber.v("fancy test B sees shared list or its own list or something")
             userB.viewModel.selectList(listId)
 
             // Drain until User B is observing the shared list with no items.
             while (stateB.lists.none { it.id == listId } || stateB.uncheckedItems.isNotEmpty()) {
                 stateB = turbineB.awaitItem()
             }
-            println("fancy test B sees shared list (empty)")
+            Timber.v("fancy test B sees shared list (empty)")
 
             // User A adds an item via the ViewModel (same path as the real UI).
             userA.viewModel.openAddDialog("")
@@ -103,7 +108,7 @@ class SharedListIntegrationTest {
             while (stateB.uncheckedItems.isEmpty()) {
                 stateB = turbineB.awaitItem()
             }
-            println("fancy test user B observes the new item")
+            Timber.v("fancy test user B observes the new item")
             assertEquals(1, stateB.uncheckedItems.size)
             assertEquals("Milk", stateB.uncheckedItems.single().fields.name)
 
@@ -125,6 +130,6 @@ class SharedListIntegrationTest {
             turbineA.cancelAndIgnoreRemainingEvents()
             turbineB.cancelAndIgnoreRemainingEvents()
         }
-        println("THROMER test exiting")
+        Timber.v("THROMER test exiting")
     }
 }

@@ -11,19 +11,24 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.righteffort.ourgrocerylist.rules.TimberTestRule
 import org.righteffort.ourgrocerylist.ui.UiState
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
+import timber.log.Timber
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(application = IntegrationTestApp::class)
 @LooperMode(LooperMode.Mode.INSTRUMENTATION_TEST)
-class DifferentIntegrationTest {
+class FirstSingleUserIntegrationTest {
+    @get:Rule
+    val timberRule = TimberTestRule()
 
     private val userA = TestUser(email = "test1@test.invalid", listName = "User A List", appName = "userA")
 
@@ -44,10 +49,10 @@ class DifferentIntegrationTest {
     fun tearDown() {
         Dispatchers.resetMain()
         // TODO are any of these async/suspend ?
-        println("DEBUG starting tearDown")
+        Timber.v("DEBUG starting tearDown")
         userA.app.delete()
         clearEmulatorData()
-        println("DEBUG done with tearDown")
+        Timber.v("DEBUG done with tearDown")
     }
 
     @Test
@@ -55,12 +60,15 @@ class DifferentIntegrationTest {
         userA.viewModel.uiState.test(timeout = 15.seconds) {
             userA.viewModel.addList(userA.listName)
             var state: UiState
-            do { state = awaitItem() } while (state.lists.none { it.name == userA.listName })
-            val listId = state.lists.first { it.isOwner }.id
-            println("DEBUG A lists ${userA.viewModel.uiState.value.lists}")
-            println("DEBUG A got $listId")
+            do {
+                state = awaitItem()
+            } while (state.lists.none { it.name == userA.listName } || state.currentListName != userA.listName)
+            val listId = state.lists.first { it.name == userA.listName }.id
+
+            Timber.v("DEBUG A lists ${userA.viewModel.uiState.value.lists}")
+            Timber.v("DEBUG A got $listId")
             cancelAndIgnoreRemainingEvents()
         }
-        println("THROMER test exiting")
+        Timber.v("THROMER test exiting")
     }
 }

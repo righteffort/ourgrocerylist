@@ -125,3 +125,11 @@ lists/{listId}/items/{itemId}
 
 **`baseFingerprint`** — the `fingerprint` value of the state the client based its edit on. If the client is editing from up-to-date state, this matches the document's `fingerprint` field prior to the write. If another client wrote in between, it won't match.
 
+## List observation strategy
+
+`FirestoreListRepository.observeLists()` runs two parallel Firestore snapshot queries — lists where `owner.uid == user.uid` and lists where `editors.{user.uid}` is present — and merges them client-side. Results are deduplicated and sorted: owned lists first (alphabetically), then editor lists (alphabetically).
+
+**Readiness gate** — both queries fire an initial snapshot on attach. Without a gate, the first listener's empty result would reach the ViewModel before the second listener initializes, falsely triggering "no lists → create default Groceries" list creation. Each listener sets a flag (`ownedReady`/`editorReady`) and `sendCombined` returns early until both are true.
+
+**Sign-out handling** — `observeLists()` is wrapped in a `flatMapLatest` on the auth state flow. On sign-out (`user == null`), it immediately returns `flowOf(emptyList())` rather than `emptyFlow()`. The empty-list emission runs through the ViewModel's `collect` block, which cancels all active `observeItems` listeners before Firestore revokes the auth token; without this, the lingering listeners would receive `PERMISSION_DENIED` errors.
+
