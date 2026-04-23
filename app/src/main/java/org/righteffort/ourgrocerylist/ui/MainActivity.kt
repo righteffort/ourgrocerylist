@@ -12,6 +12,8 @@ import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import org.righteffort.ourgrocerylist.BuildConfig
+import org.righteffort.ourgrocerylist.DebugFirebaseEnvironment
 import org.righteffort.ourgrocerylist.OurGroceryListApp
 import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
 import org.righteffort.ourgrocerylist.ui.theme.OurGroceryListTheme
@@ -51,9 +53,18 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        val onChangeFirebaseEnv: (suspend () -> Unit)? = if (BuildConfig.DEBUG) {
+            { (app.firebaseEnvironment as DebugFirebaseEnvironment).changeEnvironment(this) }
+        } else null
+
         setContent {
             OurGroceryListTheme {
-                ShoppingListScreen(viewModel, onSignout = ::signOut, onRestart = ::restartApp)
+                ShoppingListScreen(
+                    viewModel,
+                    onSignout = ::signOut,
+                    onRestart = ::restartApp,
+                    onChangeFirebaseEnv = onChangeFirebaseEnv,
+                )
             }
         }
     }

@@ -15,15 +15,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
 import org.righteffort.ourgrocerylist.client.EmulatorUsernameRepository
-import org.righteffort.ourgrocerylist.util.setUpFirebaseEmulators
 
-class EmulatorFirebaseEnvironment(dataStore: DataStore<Preferences>) : FirebaseEnvironment {
+class EmulatorFirebaseEnvironment(
+    private val host: String,
+    dataStore: DataStore<Preferences>,
+) : FirebaseEnvironment {
 
     private val usernameRepository = EmulatorUsernameRepository(dataStore)
-
-    init {
-        setUpFirebaseEmulators()
-    }
 
     override suspend fun signIn(activity: ComponentActivity) {
         val username = getOrPromptUsername(activity)
@@ -43,6 +41,10 @@ class EmulatorFirebaseEnvironment(dataStore: DataStore<Preferences>) : FirebaseE
         Firebase.auth.signOut()
     }
 
+    suspend fun clearStoredCredentials() {
+        usernameRepository.clear()
+    }
+
     private suspend fun getOrPromptUsername(activity: ComponentActivity): String {
         usernameRepository.get()?.let { return it }
 
@@ -53,7 +55,7 @@ class EmulatorFirebaseEnvironment(dataStore: DataStore<Preferences>) : FirebaseE
             }
             AlertDialog.Builder(activity)
                 .setTitle("Create/Use Test User")
-                .setMessage("Username (email will be username@test.invalid):")
+                .setMessage("Emulator: $host\nUsername (email will be username@test.invalid):")
                 .setView(editText)
                 .setPositiveButton("Create/Use") { _, _ ->
                     val username = editText.text.toString()
