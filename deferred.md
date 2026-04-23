@@ -2,8 +2,8 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - run integration tests in both disconnected and connected mode
   - `FirebaseFirestore.getInstance(userA.app).disableNetwork().await()` before, `enableNetwork` after
 - DONE Reduce integration test/code coupling: see claude session `integration-test-coupling`, which advises "Fix it in the ViewModel — emit _lists and _currentListId as an atomic pair so uiState never has a state where currentListName doesn't match a list in lists. Harder, but the tests become simpler."
-- "The Triple in the combine is a minor style thing. error-handling inconsistency in observeItems (it calls logAndEmitFatalError then emits emptyList() and continues"
-- make it easy to switch between prod, emulator via 127.0.0.1, emulator via magic ip address
+- DONE "The Triple in the combine is a minor style thing. error-handling inconsistency in observeItems (it calls logAndEmitFatalError then emits emptyList() and continues"
+- DONE make it easy to switch between prod, emulator via 127.0.0.1, emulator via magic ip address
 - import trader joe's fails weirdly and silently (partial import)
 - spurious permission denied when importing list but import succeeds
 - adopt timber or something so we can drop printlns in prod and see Log.d

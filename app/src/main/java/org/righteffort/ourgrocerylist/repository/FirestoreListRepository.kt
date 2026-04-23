@@ -121,9 +121,9 @@ class FirestoreListRepository(
     }
 
     override suspend fun addEditor(listId: String, email: String) {
-        Timber.v("DEBUG addEditor $listId $email calling emailToUid")
+        // println("addEditor $listId $email calling emailToUid")
         val uid = callEmailToUid(email)
-        Timber.v("DEBUG addEditor $listId $email called emailToUid")
+        // println("addEditor $listId $email called emailToUid")
 
         val ref = firestore.document("lists/$listId")
         firestore.runTransaction { transaction ->
