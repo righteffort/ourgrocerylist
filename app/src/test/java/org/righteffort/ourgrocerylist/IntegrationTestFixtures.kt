@@ -6,7 +6,6 @@ import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
 import com.google.firebase.firestore.firestoreSettings
 import com.google.firebase.firestore.persistentCacheSettings
@@ -20,7 +19,6 @@ import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
 import org.righteffort.ourgrocerylist.ui.ShoppingViewModel
 import org.righteffort.ourgrocerylist.util.setUpFirebaseEmulators
 import org.robolectric.RuntimeEnvironment
-import org.robolectric.shadows.ShadowLog
 import org.robolectric.shadows.ShadowLooper
 import java.io.File
 import java.net.HttpURLConnection

@@ -17,10 +17,12 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ItemFields
@@ -55,9 +57,23 @@ class ShoppingViewModel(
     // so that remote-change listeners and undo stacks persist across list switches.
     private val listResources = mutableMapOf<String, ListResources>()
 
-    private val _currentListId = MutableStateFlow<String?>(null)
+    // lists and currentListId are kept in a single StateFlow so they always update
+    // atomically. This prevents uiState from ever emitting an inconsistent state where
+    // currentListName doesn't match a list in lists.
+    private data class ListSelectionState(
+        val lists: List<ListMetadata> = emptyList(),
+        val currentListId: String? = null,
+    )
+    private val _listSelection = MutableStateFlow(ListSelectionState())
 
-    private val _lists = MutableStateFlow<List<ListMetadata>>(emptyList())
+    // Carries the per-list items and undo state together with the list snapshot that was
+    // current when the inner combine was set up. Consumed only inside uiState.
+    private data class ActiveListState(
+        val listId: String?,
+        val lists: List<ListMetadata>,
+        val items: List<ShoppingItem>,
+        val undoState: UndoRedoState,
+    )
 
     private val _dialogState = MutableStateFlow<ItemDialogState?>(null)
     val dialogState: StateFlow<ItemDialogState?> = _dialogState.asStateFlow()
@@ -97,7 +113,7 @@ class ShoppingViewModel(
             currentUserFlow.collect { user ->
                 if (user == null) {
                     Timber.v("DEBUG SVM user signed out, clearing current list selection")
-                    _currentListId.value = null
+                    _listSelection.update { it.copy(currentListId = null) }
                 }
             }
         }
@@ -133,20 +149,25 @@ class ShoppingViewModel(
                                 logAndEmitFatalError("Failed to create initial list", e)
                             }
                         }
-                        Timber.v("DEBUG SVM lists empty, updating _lists")
-                        _lists.value = lists
+                        Timber.v("DEBUG SVM lists empty, updating _listSelection")
+                        _listSelection.update { it.copy(lists = lists) }
                         return@collect
                     }
 
-                    // Select a list if none is selected or the current one was removed.
-                    val currentId = _currentListId.value
-                    if (currentId == null || currentId !in newIds) {
-                        val selected = lists.firstOrNull { it.isOwner } ?: lists.first()
-                        Timber.v("DEBUG SVM auto-selecting list id=${selected.id}")
-                        _currentListId.value = selected.id
+                    // Atomically update lists and currentListId so uiState never emits a state
+                    // where currentListName doesn't match a list in lists.
+                    _listSelection.update { current ->
+                        val newCurrentId =
+                            if (current.currentListId == null || current.currentListId !in newIds) {
+                                val selected = lists.firstOrNull { it.isOwner } ?: lists.first()
+                                Timber.v("DEBUG SVM auto-selecting list id=${selected.id}")
+                                selected.id
+                            } else {
+                                current.currentListId
+                            }
+                        ListSelectionState(lists, newCurrentId)
                     }
-                    Timber.v("DEBUG SVM lists non-empty, updating _lists=${lists.map { it.id }}")
-                    _lists.value = lists
+                    Timber.v("DEBUG SVM lists non-empty, updated _listSelection currentListId=${_listSelection.value.currentListId} lists=${lists.map { it.id }}")
                 }
         }
     }
@@ -166,10 +187,14 @@ class ShoppingViewModel(
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<UiState> = combine(
-        _currentListId.flatMapLatest { listId ->
+        // distinctUntilChanged on listId means the items subscription only restarts when the
+        // selected list actually changes — not when lists metadata updates (e.g. a new list
+        // shared to you). The inner combine re-subscribes to _listSelection for lists so that
+        // metadata changes are still reflected without restarting the items subscription.
+        _listSelection.map { it.currentListId }.distinctUntilChanged().flatMapLatest { listId ->
             Timber.v("DEBUG SVM uiState listId=$listId")
             if (listId == null) {
-                flowOf(Triple<String?, List<ShoppingItem>, UndoRedoState>(null, emptyList(), UndoRedoState()))
+                _listSelection.map { ActiveListState(null, it.lists, emptyList(), UndoRedoState()) }
             } else {
                 val resources = getOrCreateResources(listId)
                 combine(
@@ -180,23 +205,25 @@ class ShoppingViewModel(
                             emit(emptyList())
                         },
                     resources.undoRedoManager.state,
-                ) { items, undoState -> Triple<String?, List<ShoppingItem>, UndoRedoState>(listId, items, undoState) }
+                    _listSelection,
+                ) { items, undoState, listSelection ->
+                    ActiveListState(listId, listSelection.lists, items, undoState)
+                }
             }
         },
-        _lists,
         currentUserFlow,
-    ) { (listId, items, undoState), lists, currentUser ->
-        val currentList = lists.find { it.id == listId }
-        Timber.v("DEBUG SVM building UiState lists=${lists.map { it.id }} currentList=${currentList?.id}")
-        val (checked, unchecked) = items.partition { it.fields.checked }
-        Timber.v("DEBUG SVM constructing UiState listId=$listId items=$items lists=$lists")
+    ) { activeListState, currentUser ->
+        val currentList = activeListState.lists.find { it.id == activeListState.listId }
+        Timber.v("DEBUG SVM building UiState lists=${activeListState.lists.map { it.id }} currentList=${currentList?.id}")
+        val (checked, unchecked) = activeListState.items.partition { it.fields.checked }
+        Timber.v("DEBUG SVM constructing UiState listId=${activeListState.listId} items=${activeListState.items} lists=${activeListState.lists}")
         UiState(
             uncheckedItems = unchecked.sortedWith(ITEM_COMPARATOR),
             checkedItems = checked.sortedWith(ITEM_COMPARATOR),
-            undoAvailable = undoState.undoAvailable,
-            redoAvailable = undoState.redoAvailable,
+            undoAvailable = activeListState.undoState.undoAvailable,
+            redoAvailable = activeListState.undoState.redoAvailable,
             currentListName = currentList?.name ?: "",
-            lists = lists,
+            lists = activeListState.lists,
             isOwner = currentList?.isOwner ?: false,
             currentUserEmail = currentUser?.email ?: "",
         )
@@ -207,7 +234,7 @@ class ShoppingViewModel(
     fun addItem(name: String) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
-        val listId = _currentListId.value ?: return
+        val listId = _listSelection.value.currentListId ?: return
         val repo = getOrCreateResources(listId).repository
         val item = ShoppingItem(id = repo.newItemId(), fields = ItemFields(name = trimmed))
         applyCommand(Command.AddItem(item))
@@ -230,7 +257,7 @@ class ShoppingViewModel(
     }
 
     fun undo() {
-        val listId = _currentListId.value ?: return
+        val listId = _listSelection.value.currentListId ?: return
         viewModelScope.launch {
             try {
                 getOrCreateResources(listId).undoRedoManager.undo()
@@ -241,7 +268,7 @@ class ShoppingViewModel(
     }
 
     fun redo() {
-        val listId = _currentListId.value ?: return
+        val listId = _listSelection.value.currentListId ?: return
         viewModelScope.launch {
             try {
                 getOrCreateResources(listId).undoRedoManager.redo()
@@ -276,7 +303,7 @@ class ShoppingViewModel(
             initialFields = ItemFields(name = initialName),
             showDelete = false,
             onSave = { newFields ->
-                val listId = _currentListId.value ?: return@ItemDialogState
+                val listId = _listSelection.value.currentListId ?: return@ItemDialogState
                 val repo = getOrCreateResources(listId).repository
                 val item = ShoppingItem(
                     id = repo.newItemId(),
@@ -297,7 +324,7 @@ class ShoppingViewModel(
     // --- List operations ---
 
     fun selectList(listId: String) {
-        _currentListId.value = listId
+        _listSelection.update { it.copy(currentListId = listId) }
     }
 
     fun addList(name: String) {
@@ -319,8 +346,8 @@ class ShoppingViewModel(
                 Timber.v("RACE_DEBUG in ShoppingViewModel.addList call getOrCreateResource listId=${id}")
                 // Pre-warm resources to start the remote-change listener before navigating.
                 getOrCreateResources(id)
-                Timber.v("DEBUG SVM addList completing: overwriting _currentListId from ${_currentListId.value} to $id (name=$trimmed)")
-                _currentListId.value = id
+                Timber.v("DEBUG SVM addList completing: updating _currentListId from ${_listSelection.value.currentListId} to $id (name=$trimmed)")
+                _listSelection.update { it.copy(currentListId = id) }
                 Timber.v("DEBUG SVM created list name=$trimmed id=$id")
             } catch (e: Exception) {
                 logAndEmitError("Failed to create list", e)
@@ -329,7 +356,7 @@ class ShoppingViewModel(
     }
 
     fun renameCurrentList(name: String) {
-        val listId = _currentListId.value ?: return
+        val listId = _listSelection.value.currentListId ?: return
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
@@ -342,7 +369,7 @@ class ShoppingViewModel(
     }
 
     fun deleteCurrentList() {
-        val listId = _currentListId.value ?: return
+        val listId = _listSelection.value.currentListId ?: return
         viewModelScope.launch {
             try {
                 listRepository.deleteList(listId)
@@ -398,7 +425,7 @@ class ShoppingViewModel(
                 for (fields in items) {
                     repo.apply(Command.AddItem(ShoppingItem(id = repo.newItemId(), fields = fields)))
                 }
-                _currentListId.value = listId
+                _listSelection.update { it.copy(currentListId = listId) }
                 dismissImportListDialog()
             } catch (e: Exception) {
                 logAndEmitError("Failed to import list", e)
@@ -426,7 +453,7 @@ class ShoppingViewModel(
 
     fun shareList(email: String) {
         Timber.v("sharing some list with $email")
-        val listId = _currentListId.value ?: return
+        val listId = _listSelection.value.currentListId ?: return
         viewModelScope.launch {
             try {
                 listRepository.addEditor(listId, email)
@@ -448,7 +475,7 @@ class ShoppingViewModel(
     // --- Helpers ---
 
     private fun applyCommand(command: Command) {
-        val listId = _currentListId.value ?: return
+        val listId = _listSelection.value.currentListId ?: return
         Timber.v("DEBUG SVM applyCommand $command listId=$listId")
         viewModelScope.launch {
             try {

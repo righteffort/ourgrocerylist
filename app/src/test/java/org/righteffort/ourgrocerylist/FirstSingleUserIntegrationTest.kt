@@ -60,9 +60,7 @@ class FirstSingleUserIntegrationTest {
         userA.viewModel.uiState.test(timeout = 15.seconds) {
             userA.viewModel.addList(userA.listName)
             var state: UiState
-            do {
-                state = awaitItem()
-            } while (state.lists.none { it.name == userA.listName } || state.currentListName != userA.listName)
+            do { state = awaitItem() } while (state.lists.none { it.name == userA.listName })
             val listId = state.lists.first { it.name == userA.listName }.id
 
             Timber.v("DEBUG A lists ${userA.viewModel.uiState.value.lists}")

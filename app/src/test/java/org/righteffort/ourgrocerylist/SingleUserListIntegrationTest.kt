@@ -62,10 +62,7 @@ class SingleUserListIntegrationTest {
         userA.viewModel.uiState.test(timeout = 15.seconds) {
             userA.viewModel.addList("Groceries")
             var state: UiState
-            // Also gate on currentListName: _lists fires the outer combine immediately when
-            // updated, but flatMapLatest hasn't emitted yet, so there is a transient state
-            // where lists=[Groceries] but currentListName is still "".
-            do { state = awaitItem() } while (state.lists.none { it.name == "Groceries" } || state.currentListName != "Groceries")
+            do { state = awaitItem() } while (state.lists.none { it.name == "Groceries" })
             assertEquals("Groceries", state.currentListName)
             assertTrue(state.isOwner)
             cancelAndIgnoreRemainingEvents()
@@ -106,10 +103,7 @@ class SingleUserListIntegrationTest {
             while (state.currentListName != "Alpha") { state = awaitItem() }
 
             userA.viewModel.deleteCurrentList()
-            // Also gate on currentListName: _lists fires the outer combine immediately when updated,
-            // but flatMapLatest hasn't rescheduled yet, so there is a transient state where
-            // lists=[Beta] but listId still=alphaId → currentListName="".
-            while (state.lists.any { it.name == "Alpha" } || state.currentListName.isEmpty()) { state = awaitItem() }
+            while (state.lists.any { it.name == "Alpha" }) { state = awaitItem() }
 
             assertFalse(state.lists.any { it.name == "Alpha" })
             assertTrue(state.currentListName.isNotEmpty())
@@ -125,9 +119,6 @@ class SingleUserListIntegrationTest {
             do { state = awaitItem() } while (state.lists.none { it.name == "ToDelete" })
 
             userA.viewModel.deleteCurrentList()
-            // Drain past transient states: _lists may briefly still show [ToDelete] (stale,
-            // before the observeLists collect updates it) or currentListName may be empty
-            // (lists=[Groceries] but _currentListId hasn't switched yet). Wait for stable state.
             while (state.currentListName != "Groceries") { state = awaitItem() }
 
             assertEquals("Groceries", state.currentListName)
@@ -142,9 +133,7 @@ class SingleUserListIntegrationTest {
         userA.viewModel.uiState.test(timeout = 15.seconds) {
             userA.viewModel.addList("List A")
             var state: UiState
-            do {
-                state = awaitItem()
-            } while (state.lists.none { it.name == "List A" } || state.currentListName != "List A")
+            do { state = awaitItem() } while (state.lists.none { it.name == "List A" })
             val listA = state.lists.first { it.name == "List A" }
             Timber.v("created list ${listA.name} ${listA.id}")
 
@@ -164,9 +153,7 @@ class SingleUserListIntegrationTest {
 
             // Drain until List B is visible AND the VM has switched to it.
             userA.viewModel.addList("List B")
-            while (state.lists.none { it.name == "List B" } || state.currentListName != "List B") {
-                state = awaitItem()
-            }
+            while (state.lists.none { it.name == "List B" } || state.currentListName != "List B") { state = awaitItem() }
             val listB = state.lists.first { it.name == "List B" }
             Timber.v("created list ${listB.name} ${listB.id}")
 
