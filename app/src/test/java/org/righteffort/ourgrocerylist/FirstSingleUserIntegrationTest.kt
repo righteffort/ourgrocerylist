@@ -19,13 +19,14 @@ import org.righteffort.ourgrocerylist.ui.UiState
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
+import timber.log.Timber
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(application = IntegrationTestApp::class)
 @LooperMode(LooperMode.Mode.INSTRUMENTATION_TEST)
-class DifferentIntegrationTest {
+class FirstSingleUserIntegrationTest {
     @get:Rule
     val timberRule = TimberTestRule()
 
@@ -48,10 +49,10 @@ class DifferentIntegrationTest {
     fun tearDown() {
         Dispatchers.resetMain()
         // TODO are any of these async/suspend ?
-        println("DEBUG starting tearDown")
+        Timber.v("DEBUG starting tearDown")
         userA.app.delete()
         clearEmulatorData()
-        println("DEBUG done with tearDown")
+        Timber.v("DEBUG done with tearDown")
     }
 
     @Test
@@ -60,11 +61,12 @@ class DifferentIntegrationTest {
             userA.viewModel.addList(userA.listName)
             var state: UiState
             do { state = awaitItem() } while (state.lists.none { it.name == userA.listName })
-            val listId = state.lists.first { it.isOwner }.id
-            println("DEBUG A lists ${userA.viewModel.uiState.value.lists}")
-            println("DEBUG A got $listId")
+            val listId = state.lists.first { it.name == userA.listName }.id
+
+            Timber.v("DEBUG A lists ${userA.viewModel.uiState.value.lists}")
+            Timber.v("DEBUG A got $listId")
             cancelAndIgnoreRemainingEvents()
         }
-        println("THROMER test exiting")
+        Timber.v("THROMER test exiting")
     }
 }

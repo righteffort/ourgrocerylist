@@ -55,7 +55,8 @@ Core functionality implemented: Add, edit, delete, check/uncheck items. Edit dia
 - The ViewModel has no Compose imports and no Firestore imports
 - The repository interface has no Firestore types
 - Every mutation is a Command (sealed class) — this is the foundation for undo/redo
-- All mutations write directly to Firestore. Last-writer wins.
+- Firestore interactions never need be aware of whether the state they observe and mutate is up-to-date with the server. Mutations are fire-and-forget (no await) except in special cases.
+- All mutations write directly to Firestore through the SDK. Last-writer wins.
 - Undo/redo stacks persisted via `kotlinx.serialization` (JSON) in Preferences DataStore — not Proto DataStore
 - On remote write to an item, truncate undo/redo stacks from the first entry referencing that item toward oldest (v0). Recent entries preserved. Field-level pruning deferred.
 

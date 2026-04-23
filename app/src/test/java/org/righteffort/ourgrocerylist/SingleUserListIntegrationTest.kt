@@ -5,6 +5,7 @@ import com.google.firebase.FirebaseOptions
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -102,10 +103,7 @@ class SingleUserListIntegrationTest {
             while (state.currentListName != "Alpha") { state = awaitItem() }
 
             userA.viewModel.deleteCurrentList()
-            // Also gate on currentListName: _lists fires the outer combine immediately when updated,
-            // but flatMapLatest hasn't rescheduled yet, so there is a transient state where
-            // lists=[Beta] but listId still=alphaId → currentListName="".
-            while (state.lists.any { it.name == "Alpha" } || state.currentListName.isEmpty()) { state = awaitItem() }
+            while (state.lists.any { it.name == "Alpha" }) { state = awaitItem() }
 
             assertFalse(state.lists.any { it.name == "Alpha" })
             assertTrue(state.currentListName.isNotEmpty())
@@ -121,11 +119,9 @@ class SingleUserListIntegrationTest {
             do { state = awaitItem() } while (state.lists.none { it.name == "ToDelete" })
 
             userA.viewModel.deleteCurrentList()
-            // Drain past transient states where lists is empty or currentListName hasn't
-            // caught up yet (lists emits before _currentListId switches).
-            while (state.lists.isEmpty() || state.currentListName.isEmpty()) { state = awaitItem() }
+            while (state.currentListName != "Groceries") { state = awaitItem() }
 
-            assertEquals("Groceries", state.currentListName)  // TODO: times out
+            assertEquals("Groceries", state.currentListName)
             assertTrue(state.uncheckedItems.isEmpty())
             assertTrue(state.isOwner)
             cancelAndIgnoreRemainingEvents()
@@ -134,16 +130,21 @@ class SingleUserListIntegrationTest {
 
     @Test
     fun `switching lists changes items`() = runTest {
-        userA.viewModel.uiState.test (timeout = 15.seconds) {
+        userA.viewModel.uiState.test(timeout = 15.seconds) {
             userA.viewModel.addList("List A")
             var state: UiState
-            do { state = awaitItem() } while (state.lists.none { it.name == "List A" } || state.currentListName != "List A")
+            do { state = awaitItem() } while (state.lists.none { it.name == "List A" })
             val listA = state.lists.first { it.name == "List A" }
             Timber.v("created list ${listA.name} ${listA.id}")
-            println("created list ${listA.name} ${listA.id}")
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Apples", quantity = 1.0, checked = false))
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Apples",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
             Timber.v("DEBUG TEST before Apples drain: currentListName=${state.currentListName} uncheckedItems=${state.uncheckedItems.map { it.fields.name }}")
             while (state.uncheckedItems.none { it.fields.name == "Apples" }) {
                 state = awaitItem()
@@ -155,23 +156,32 @@ class SingleUserListIntegrationTest {
             while (state.lists.none { it.name == "List B" } || state.currentListName != "List B") { state = awaitItem() }
             val listB = state.lists.first { it.name == "List B" }
             Timber.v("created list ${listB.name} ${listB.id}")
-            println("created list ${listB.name} ${listB.id}")
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Bread", quantity = 1.0, checked = false))
-            while (state.uncheckedItems.none { it.fields.name == "Bread" }) { state = awaitItem() }
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Bread",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
+            while (state.uncheckedItems.none { it.fields.name == "Bread" }) {
+                state = awaitItem()
+            }
 
             assertTrue(state.uncheckedItems.any { it.fields.name == "Bread" })
             assertFalse(state.uncheckedItems.any { it.fields.name == "Apples" })
 
             // Switch back to List A and verify Apples is there.
             Timber.v("Switching to ${listA.name}")
-            println("switching")
             userA.viewModel.selectList(listA.id)
-            while (state.currentListName != "List A") { state = awaitItem() }
-            while (state.uncheckedItems.none { it.fields.name == "Apples" }) { state = awaitItem() }
+            while (state.currentListName != "List A") {
+                state = awaitItem()
+            }
+            while (state.uncheckedItems.none { it.fields.name == "Apples" }) {
+                state = awaitItem()
+            }
             Timber.v("Switched to ${listA.name}")
-            println("switched")
 
             assertTrue(state.uncheckedItems.any { it.fields.name == "Apples" })
             assertFalse(state.uncheckedItems.any { it.fields.name == "Bread" })

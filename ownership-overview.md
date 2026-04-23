@@ -1,5 +1,7 @@
 # Ownership & Lifecycle Overview
 
+Note: some of this may be updated, especially recording listeners
+
 ## Object Ownership
 
 ### Application-scoped (singleton, app lifetime)

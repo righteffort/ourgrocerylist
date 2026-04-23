@@ -53,36 +53,43 @@ class FirestoreListRepository(
             callbackFlow {
                 var ownedDocs: List<DocumentSnapshot> = emptyList()
                 var editorDocs: List<DocumentSnapshot> = emptyList()
+                var ownedReady = false
+                var editorReady = false
 
                 fun sendCombined() {
+                    // Wait until both listeners have fired at least once to avoid a spurious
+                    // empty emission while the second listener is still initializing.
+                    Timber.v("DEBUG FLR sendCombined ownedReady=$ownedReady editorReady=$editorReady")
+                    if (!ownedReady || !editorReady) return
                     val all = (
                         ownedDocs.mapNotNull { it.toListMetadata(isOwner = true) } +
                         editorDocs.mapNotNull { it.toListMetadata(isOwner = false) }
                     )
                         .distinctBy { it.id }
                         .sortedWith(compareBy({ !it.isOwner }, { it.name.lowercase() }))
-                    Timber.v("RACE_DEBUG trySend ${all.map{it.id}}")
+                    Timber.v("DEBUG FLR sendCombined ${all.map { it.id }}")
                     trySend(all)
                 }
 
                 val ownedListener = firestore.collection("lists")
                     .whereEqualTo("owner.uid", user.uid)
                     .addSnapshotListener { snapshot, error ->
-                        Timber.v("DEBUG FLR lists ownedListener callback error=$error on: ${Thread.currentThread().name}")
+                        Timber.v("DEBUG FLR ownedListener callback error=$error on: ${Thread.currentThread().name}")
                         if (error != null) { close(error); return@addSnapshotListener }
                         ownedDocs = snapshot?.documents ?: emptyList()
-                        Timber.d("DEBUG FLR lists ownedListener ownedDocs=$ownedDocs")
-                        Timber.d("DEBUG FLR doc len ${ownedDocs.size} first doc ${if (ownedDocs.isEmpty()) "nope" else ownedDocs.first().data}")
+                        Timber.v("DEBUG FLR ownedListener size=${ownedDocs.size} isFromCache=${snapshot?.metadata?.isFromCache} hasPendingWrites=${snapshot?.metadata?.hasPendingWrites()} first=${if (ownedDocs.isEmpty()) "none" else ownedDocs.first().data}")
+                        ownedReady = true
                         sendCombined()
                     }
 
                 val editorListener = firestore.collection("lists")
                     .whereNotEqualTo("editors.${user.uid}", null)
                     .addSnapshotListener { snapshot, error ->
-                        Timber.v("DEBUG FLR lists editorListener error=$error callback on: ${Thread.currentThread().name}")
+                        Timber.v("DEBUG FLR editorListener callback error=$error on: ${Thread.currentThread().name}")
                         if (error != null) { close(error); return@addSnapshotListener }
                         editorDocs = snapshot?.documents ?: emptyList()
-                        Timber.d("DEBUG FLR lists editorListener editorDocs=$editorDocs")
+                        Timber.v("DEBUG FLR editorListener size=${editorDocs.size} isFromCache=${snapshot?.metadata?.isFromCache} hasPendingWrites=${snapshot?.metadata?.hasPendingWrites()}")
+                        editorReady = true
                         sendCombined()
                     }
 
@@ -101,12 +108,12 @@ class FirestoreListRepository(
                 "owner" to mapOf("uid" to owner.uid, "email" to owner.email),
                 "editors" to emptyMap<String, Any>(),
             )
-        ).await()
+        )
         return ref.id
     }
 
     override suspend fun renameList(listId: String, name: String) {
-        firestore.document("lists/$listId").update("name", name).await()
+        firestore.document("lists/$listId").update("name", name)
     }
 
     override suspend fun deleteList(listId: String) {
@@ -114,9 +121,9 @@ class FirestoreListRepository(
     }
 
     override suspend fun addEditor(listId: String, email: String) {
-        Timber.v("DEBUG addEditor $listId $email calling emailToUid")
+        // println("addEditor $listId $email calling emailToUid")
         val uid = callEmailToUid(email)
-        Timber.v("DEBUG addEditor $listId $email called emailToUid")
+        // println("addEditor $listId $email called emailToUid")
 
         val ref = firestore.document("lists/$listId")
         firestore.runTransaction { transaction ->
