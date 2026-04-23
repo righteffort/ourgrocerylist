@@ -1,4 +1,5 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
+- spinner/loading instead of mysterious ".." list on startup would be nice
 - run integration tests in both disconnected and connected mode
   - `FirebaseFirestore.getInstance(userA.app).disableNetwork().await()` before, `enableNetwork` after
 - DONE Reduce integration test/code coupling: see claude session `integration-test-coupling`, which advises "Fix it in the ViewModel — emit _lists and _currentListId as an atomic pair so uiState never has a state where currentListName doesn't match a list in lists. Harder, but the tests become simpler."

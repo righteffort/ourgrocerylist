@@ -39,8 +39,8 @@ class EmulatorFirebaseEnvironment(dataStore: DataStore<Preferences>) : FirebaseE
     }
 
     override suspend fun signOut() {
-        Firebase.auth.signOut()
         usernameRepository.clear()
+        Firebase.auth.signOut()
     }
 
     private suspend fun getOrPromptUsername(activity: ComponentActivity): String {
