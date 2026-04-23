@@ -33,6 +33,7 @@ import org.righteffort.ourgrocerylist.repository.ListRepository
 import org.righteffort.ourgrocerylist.repository.ShoppingRepository
 import org.righteffort.ourgrocerylist.undo.UndoRedoManager
 import org.righteffort.ourgrocerylist.undo.UndoRedoState
+import org.righteffort.ourgrocerylist.util.CsvExporter
 import org.righteffort.ourgrocerylist.util.CsvImporter
 import org.righteffort.ourgrocerylist.util.CsvParseException
 import timber.log.Timber
@@ -395,6 +396,12 @@ class ShoppingViewModel(
 
     fun openImportListDialog() { _importListDialogState.value = ImportListDialogState() }
     fun dismissImportListDialog() { _importListDialogState.value = null }
+
+    fun exportCurrentListToCsv(): String {
+        val state = uiState.value
+        val items = state.uncheckedItems + state.checkedItems
+        return CsvExporter.export(items)
+    }
 
     fun importListFromCsv(name: String, csvContent: String) {
         val user = currentUserFlow.value ?: return

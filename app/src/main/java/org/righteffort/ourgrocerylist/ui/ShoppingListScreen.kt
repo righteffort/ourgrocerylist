@@ -56,6 +56,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import android.provider.OpenableColumns
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -86,8 +87,27 @@ fun ShoppingListScreen(
     val importListDialogState by viewModel.importListDialogState.collectAsState()
     var addFieldText by remember { mutableStateOf("") }
     var signOutConfirmDialogVisible by remember { mutableStateOf(false) }
+    var exportErrorMessage by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val csv = viewModel.exportCurrentListToCsv()
+        scope.launch(Dispatchers.IO) {
+            try {
+                context.contentResolver.openOutputStream(uri)
+                    ?.bufferedWriter()
+                    ?.use { it.write(csv) }
+                    ?: throw IOException("Could not open output stream")
+                snackbarHostState.showSnackbar("List exported")
+            } catch (e: IOException) {
+                exportErrorMessage = e.message ?: "Export failed"
+            }
+        }
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.errors.collect { message ->
@@ -102,6 +122,17 @@ fun ShoppingListScreen(
                 onSignout()
             },
             onDismiss = { signOutConfirmDialogVisible = false },
+        )
+    }
+
+    exportErrorMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { exportErrorMessage = null },
+            title = { Text("Export failed") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { exportErrorMessage = null }) { Text("OK") }
+            },
         )
     }
 
@@ -177,6 +208,7 @@ fun ShoppingListScreen(
                         onRenameList = { viewModel.openRenameListDialog() },
                         onShareList = { viewModel.openShareListDialog() },
                         onImportList = { viewModel.openImportListDialog() },
+                        onExportList = { exportLauncher.launch("${state.currentListName}.csv") },
                         onDeleteList = { viewModel.openDeleteListDialog() },
                         onSignoutRequest = { signOutConfirmDialogVisible = true },
                         onChangeFirebaseEnv = onChangeFirebaseEnv?.let { handler ->
@@ -400,6 +432,7 @@ private fun OverflowMenu(
     onRenameList: () -> Unit,
     onShareList: () -> Unit,
     onImportList: () -> Unit,
+    onExportList: () -> Unit,
     onDeleteList: () -> Unit,
     onSignoutRequest: () -> Unit,
     onChangeFirebaseEnv: (() -> Unit)? = null,
@@ -450,6 +483,13 @@ private fun OverflowMenu(
                 },
             )
         }
+        DropdownMenuItem(
+            text = { Text("Export list to CSV") },
+            onClick = {
+                expanded = false
+                onExportList()
+            },
+        )
         HorizontalDivider()
         if (onChangeFirebaseEnv != null) {
             DropdownMenuItem(
