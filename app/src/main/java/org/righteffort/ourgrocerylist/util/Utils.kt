@@ -10,15 +10,15 @@ import java.text.NumberFormat
 import java.text.ParsePosition
 import java.util.Locale
 
-// Requires `for p in 8080 9099 5001 ; do adb reverse tcp:$p tcp:$p ; done`
-fun setUpFirebaseEmulators(app: FirebaseApp = FirebaseApp.getInstance()) {
-    // 127.0.0.1 because some devices fail to DNS-resolve "localhost"
-    Firebase.auth(app).useEmulator("127.0.0.1", 9099)
-    Timber.v("DEBUG setUpFirebaseEmulators: auth emulator configured")
-    Firebase.firestore(app).useEmulator("127.0.0.1", 8080)
-    Timber.v("DEBUG setUpFirebaseEmulators: firestore emulator configured")
-    Firebase.functions(app, "us-west1").useEmulator("127.0.0.1", 5001)  // TODO hardcoded!
-    Timber.v("DEBUG setUpFirebaseEmulators: functions emulator configured")
+// For physical devices: `for p in 8080 9099 5001 ; do adb reverse tcp:$p tcp:$p ; done`, host="127.0.0.1"
+// For AVD: host="10.0.2.2" (no adb reverse needed)
+fun setUpFirebaseEmulators(host: String, app: FirebaseApp = FirebaseApp.getInstance()) {
+    Firebase.auth(app).useEmulator(host, 9099)
+    Timber.v("DEBUG setUpFirebaseEmulators: auth emulator configured at $host")
+    Firebase.firestore(app).useEmulator(host, 8080)
+    Timber.v("DEBUG setUpFirebaseEmulators: firestore emulator configured at $host")
+    Firebase.functions(app, "us-west1").useEmulator(host, 5001)  // TODO hardcoded!
+    Timber.v("DEBUG setUpFirebaseEmulators: functions emulator configured at $host")
     // TODO: check that someone is listening
 }
 

@@ -61,7 +61,7 @@ internal suspend fun setupUser(testUser: TestUser, options: FirebaseOptions) {
         options,
         testUser.appName,
     )
-    setUpFirebaseEmulators(testUser.app)
+    setUpFirebaseEmulators("127.0.0.1", testUser.app)
     val firestore = FirebaseFirestore.getInstance(testUser.app).apply {
         firestoreSettings = FirebaseFirestoreSettings.Builder()
             .setLocalCacheSettings(MemoryCacheSettings.newBuilder().build())

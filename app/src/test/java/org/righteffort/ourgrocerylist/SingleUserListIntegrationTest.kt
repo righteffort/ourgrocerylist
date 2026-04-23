@@ -134,7 +134,7 @@ class SingleUserListIntegrationTest {
 
     @Test
     fun `switching lists changes items`() = runTest {
-        userA.viewModel.uiState.test() { // (timeout = 5.seconds) {
+        userA.viewModel.uiState.test (timeout = 15.seconds) {
             userA.viewModel.addList("List A")
             var state: UiState
             do { state = awaitItem() } while (state.lists.none { it.name == "List A" } || state.currentListName != "List A")

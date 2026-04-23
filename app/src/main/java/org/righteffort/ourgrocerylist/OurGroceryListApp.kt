@@ -46,15 +46,14 @@ class OurGroceryListApp : Application() {
 
     override fun onCreate() {
         if (BuildConfig.DEBUG) {
-            Timber.plant(Timber.DebugTree());
+            Timber.plant(Timber.DebugTree())
         }
         super.onCreate()
         Firebase.firestore.firestoreSettings = FirebaseFirestoreSettings.Builder()
             .setLocalCacheSettings(PersistentCacheSettings.newBuilder().build())
             .build()
-        firebaseEnvironment = if (BuildConfig.USE_FIREBASE_EMULATOR) {
-            // Requires `for p in 8080 9099 5001 ; do adb reverse tcp:$p tcp:$p ; done` for emulator.
-            EmulatorFirebaseEnvironment(dataStore)
+        firebaseEnvironment = if (BuildConfig.DEBUG) {
+            DebugFirebaseEnvironment(dataStore)
         } else {
             ProductionFirebaseEnvironment()
         }

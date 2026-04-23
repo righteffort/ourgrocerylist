@@ -64,7 +64,12 @@ import org.righteffort.ourgrocerylist.util.formatQuantityNumber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShoppingListScreen(viewModel: ShoppingViewModel, onSignout: () -> Unit, onRestart: () -> Unit) {
+fun ShoppingListScreen(
+    viewModel: ShoppingViewModel,
+    onSignout: () -> Unit,
+    onRestart: () -> Unit,
+    onChangeFirebaseEnv: (suspend () -> Unit)? = null,
+) {
     val fatalError by viewModel.fatalError.collectAsState()
     if (fatalError != null) {
         FatalErrorScreen(fatalError!!, onRestart)
@@ -81,6 +86,7 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel, onSignout: () -> Unit, onRe
     var addFieldText by remember { mutableStateOf("") }
     var signOutConfirmDialogVisible by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(viewModel) {
         viewModel.errors.collect { message ->
@@ -172,6 +178,14 @@ fun ShoppingListScreen(viewModel: ShoppingViewModel, onSignout: () -> Unit, onRe
                         onImportList = { viewModel.openImportListDialog() },
                         onDeleteList = { viewModel.openDeleteListDialog() },
                         onSignoutRequest = { signOutConfirmDialogVisible = true },
+                        onChangeFirebaseEnv = onChangeFirebaseEnv?.let { handler ->
+                            {
+                                scope.launch {
+                                    handler()
+                                    snackbarHostState.showSnackbar("Close and reopen the app to apply")
+                                }
+                            }
+                        },
                     )
                 },
             )
@@ -387,6 +401,7 @@ private fun OverflowMenu(
     onImportList: () -> Unit,
     onDeleteList: () -> Unit,
     onSignoutRequest: () -> Unit,
+    onChangeFirebaseEnv: (() -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     IconButton(onClick = { expanded = true }) {
@@ -435,6 +450,15 @@ private fun OverflowMenu(
             )
         }
         HorizontalDivider()
+        if (onChangeFirebaseEnv != null) {
+            DropdownMenuItem(
+                text = { Text("Firebase environment…") },
+                onClick = {
+                    expanded = false
+                    onChangeFirebaseEnv()
+                },
+            )
+        }
         DropdownMenuItem(
             text = { Text("Sign out") },
             onClick = {

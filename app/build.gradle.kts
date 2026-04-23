@@ -59,18 +59,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    flavorDimensions += "environment"
-    productFlavors {
-        create("local") {
-            dimension = "environment"
-            isDefault = true
-            buildConfigField("boolean", "USE_FIREBASE_EMULATOR", "true")
-        }
-        create("prod") {
-            dimension = "environment"
-            buildConfigField("boolean", "USE_FIREBASE_EMULATOR", "false")
-        }
-    }
     buildFeatures {
         compose = true
         buildConfig = true
