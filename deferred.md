@@ -12,7 +12,7 @@ These aspects have not yet been fully designed and implemented and are deferred 
   - review for code that compromises strong typechecking (e.g. by using typescript syntax, overly permissive casts in any language)
   - review for swallowed errors
   - review locations that throw 'fatal' errors to see if they are recoverable at a lower level than the application 'root'
-- get first integration test working & write down how to run it: ./gradlew testLocalDebugUnitTest -PrunIntegration
+- DONE get first integration test working & write down how to run it: ./gradlew testDebugUnitTest -PrunIntegration
 - behavior when firebase functions are unavailable is weak: "INTERNAL"
 - behavior when creating list and firestore offline is weak (at least i think that's the cause of this): PERMISSION_DENIED: evaluation error at L87:16 for 'list' @ L87, Null value error. for 'list' @ L87. Or maybe worse, silently does nothing! 
 - get rid of 'decrement below 0 == delete', disable '-' in stepper when quanity <= 1

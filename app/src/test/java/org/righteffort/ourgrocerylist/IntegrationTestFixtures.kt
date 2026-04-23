@@ -1,6 +1,7 @@
 package org.righteffort.ourgrocerylist
 
 import android.app.Application
+import app.cash.turbine.ReceiveTurbine
 import com.google.android.gms.tasks.Task
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
@@ -17,6 +18,7 @@ import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.FirestoreListRepository
 import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
 import org.righteffort.ourgrocerylist.ui.ShoppingViewModel
+import org.righteffort.ourgrocerylist.ui.UiState
 import org.righteffort.ourgrocerylist.util.setUpFirebaseEmulators
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.shadows.ShadowLooper
@@ -126,4 +128,45 @@ internal suspend fun <T> Task<T>.awaitInRobolectric(): T {
     }
     // The task is complete; this will unwrap the result or throw the exception immediately.
     return this.await()
+}
+
+/**
+ * Sets up a shared list scenario: A and B each create their own list, A shares theirs with B,
+ * and B selects the shared list. Returns the shared list's ID.
+ *
+ * Drains both turbines to reach a stable state (B on the shared list, no items).
+ */
+internal suspend fun setupSharedList(
+    userA: TestUser,
+    turbineA: ReceiveTurbine<UiState>,
+    userB: TestUser,
+    turbineB: ReceiveTurbine<UiState>,
+): String {
+    userA.viewModel.addList(userA.listName)
+    userB.viewModel.addList(userB.listName)
+
+    var stateA: UiState
+    do { stateA = turbineA.awaitItem() }
+    while (stateA.lists.none { it.name == userA.listName } || stateA.currentListName != userA.listName)
+
+    var stateB: UiState
+    do { stateB = turbineB.awaitItem() }
+    while (stateB.lists.none { it.name == userB.listName } || stateB.currentListName != userB.listName)
+
+    val listId = stateA.lists.first { it.isOwner }.id
+    userA.viewModel.selectList(listId)
+    userA.viewModel.shareList(userB.email)
+
+    while (stateB.lists.none { !it.isOwner }) { stateB = turbineB.awaitItem() }
+
+    userB.viewModel.selectList(listId)
+    while (
+        stateB.lists.none { it.id == listId } ||
+        stateB.currentListName != (stateB.lists.firstOrNull { it.id == listId }?.name ?: "") ||
+        stateB.uncheckedItems.isNotEmpty()
+    ) {
+        stateB = turbineB.awaitItem()
+    }
+
+    return listId
 }

@@ -14,7 +14,7 @@ Ask for clarification if anything is unclear.
 
 Run only the target test class after writing tests:
 ```
-./gradlew testLocalDebugUnitTest --rerun -PrunIntegration --tests 'org.righteffort.ourgrocerylist.CLASSNAME'
+./gradlew testDebugUnitTest --rerun -PrunIntegration --tests 'org.righteffort.ourgrocerylist.CLASSNAME'
 ```
 
 **Iteration limit**: Run tests, read output, add diagnostic logging or fix once, re-run. Stop after 2 iterations regardless of outcome and report what passed, what failed, and what you observed.

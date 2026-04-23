@@ -84,7 +84,7 @@ Remove the injection of the `callDeleteList` callable when constructing
 ## Verification
 
 - Confirm `firebase-tools` is no longer imported anywhere in functions source
-- Confirm unit tests compile: `./gradlew compileLocalDebugUnitTestSources`
+- Confirm unit tests compile: `./gradlew compileDebugUnitTestSources`
 - Human runs existing unit tests and manual visual tests of offline
   and online list delete
 
