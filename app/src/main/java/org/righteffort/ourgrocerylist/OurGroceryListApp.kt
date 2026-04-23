@@ -9,8 +9,6 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
-import com.google.firebase.firestore.firestoreSettings
-import com.google.firebase.firestore.persistentCacheSettings
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.functions
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -52,12 +50,8 @@ class OurGroceryListApp : Application() {
             })
         }
         super.onCreate()
-        Firebase.firestore.firestoreSettings = firestoreSettings {
-            setLocalCacheSettings(persistentCacheSettings {})
-        }
-        firebaseEnvironment = if (BuildConfig.USE_FIREBASE_EMULATOR) {
-            // Requires `for p in 8080 9099 5001 ; do adb reverse tcp:$p tcp:$p ; done` for emulator.
-            EmulatorFirebaseEnvironment(dataStore)
+        firebaseEnvironment = if (BuildConfig.DEBUG) {
+            DebugFirebaseEnvironment(dataStore)
         } else {
             ProductionFirebaseEnvironment()
         }

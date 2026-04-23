@@ -12,11 +12,17 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.firestore
+import com.google.firebase.firestore.firestoreSettings
+import com.google.firebase.firestore.persistentCacheSettings
 import kotlinx.coroutines.tasks.await
 
 class ProductionFirebaseEnvironment : FirebaseEnvironment {
 
     override suspend fun signIn(activity: ComponentActivity) {
+        Firebase.firestore.firestoreSettings = firestoreSettings {
+            setLocalCacheSettings(persistentCacheSettings {})
+        }
         val currentUser = Firebase.auth.currentUser
         if (currentUser == null) {
             signInWithGoogle(activity)
