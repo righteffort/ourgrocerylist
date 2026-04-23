@@ -55,6 +55,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import android.provider.OpenableColumns
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -670,15 +671,21 @@ private fun ImportListDialog(
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
-            val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: uri.toString()
-            selectedFileName = fileName
-            if (name.isBlank()) {
-                name = suggestedListName(fileName)
-            }
             scope.launch {
-                csvContent = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
+                val (displayName, content) = withContext(Dispatchers.IO) {
+                    val displayName = context.contentResolver.query(
+                        uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null,
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) cursor.getString(0) else null
+                    } ?: uri.lastPathSegment ?: uri.toString()
+                    displayName to context.contentResolver.openInputStream(uri)
+                        ?.bufferedReader()?.readText()
                 }
+                selectedFileName = displayName
+                if (name.isBlank()) {
+                    name = suggestedListName(displayName)
+                }
+                csvContent = content
             }
         }
     }

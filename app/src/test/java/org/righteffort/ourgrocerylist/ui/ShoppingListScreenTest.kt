@@ -31,4 +31,12 @@ class ShoppingListScreenTest {
     fun `returns empty string for empty filename`() {
         assertEquals("", suggestedListName(""))
     }
+
+    @Test
+    fun `document URI display name is stripped correctly`() {
+        // Verifies that once the content resolver gives us the real filename (not the
+        // raw document ID like "document:1000005592"), suggestedListName produces the
+        // right list name.
+        assertEquals("my-groceries", suggestedListName("my-groceries.csv"))
+    }
 }
