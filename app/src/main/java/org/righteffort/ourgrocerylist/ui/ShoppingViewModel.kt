@@ -67,6 +67,11 @@ class ShoppingViewModel(
     )
     private val _listSelection = MutableStateFlow(ListSelectionState())
 
+    // IDs added by addList that have not yet appeared in an observeLists snapshot.
+    // Used to suppress auto-select when a notification from an earlier local write arrives
+    // before the notification for this list's own write has been delivered.
+    private val _pendingAddListIds = mutableSetOf<String>()
+
     // Carries the per-list items and undo state together with the list snapshot that was
     // current when the inner combine was set up. Consumed only inside uiState.
     private data class ActiveListState(
@@ -127,6 +132,7 @@ class ShoppingViewModel(
 
                     // Create resources for newly discovered lists and start remote-change listeners.
                     for (list in lists) {
+                        _pendingAddListIds.remove(list.id)
                         if (list.id !in listResources) {
                             getOrCreateResources(list.id)
                         }
@@ -159,7 +165,18 @@ class ShoppingViewModel(
                     // where currentListName doesn't match a list in lists.
                     _listSelection.update { current ->
                         val newCurrentId =
-                            if (current.currentListId == null || current.currentListId !in newIds) {
+                            if (current.currentListId == null ||
+                                (current.currentListId !in newIds && current.currentListId !in _pendingAddListIds)) {
+                                // Auto-select when there is no current selection, or when the current
+                                // list is absent from this snapshot AND was not added by a pending
+                                // addList call. With latency compensation, each local write queues its
+                                // own snapshot notification; those are delivered in order when the
+                                // looper is next pumped, so a snapshot queued by an earlier addList
+                                // call will not yet include the list created by a later one.
+                                // _pendingAddListIds holds IDs written by addList that haven't yet
+                                // appeared in any snapshot; it is cleared entry-by-entry above as each
+                                // list is confirmed. This is distinct from listResources, which is
+                                // removed during cleanup before this lambda runs.
                                 val selected = lists.firstOrNull { it.isOwner } ?: lists.first()
                                 Timber.v("DEBUG SVM auto-selecting list id=${selected.id}")
                                 selected.id
@@ -347,6 +364,7 @@ class ShoppingViewModel(
                 Timber.v("RACE_DEBUG in ShoppingViewModel.addList call getOrCreateResource listId=${id}")
                 // Pre-warm resources to start the remote-change listener before navigating.
                 getOrCreateResources(id)
+                _pendingAddListIds.add(id)
                 Timber.v("DEBUG SVM addList completing: updating _currentListId from ${_listSelection.value.currentListId} to $id (name=$trimmed)")
                 _listSelection.update { it.copy(currentListId = id) }
                 Timber.v("DEBUG SVM created list name=$trimmed id=$id")

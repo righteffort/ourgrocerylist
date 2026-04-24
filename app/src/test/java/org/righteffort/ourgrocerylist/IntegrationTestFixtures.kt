@@ -7,6 +7,7 @@ import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
 import com.google.firebase.firestore.firestoreSettings
 import com.google.firebase.firestore.persistentCacheSettings
@@ -54,6 +55,7 @@ internal val googleServices: GoogleServicesConfig by lazy {
 
 internal class TestUser(val email: String, val listName: String, val appName: String) {
     lateinit var app: FirebaseApp
+    lateinit var firestore: FirebaseFirestore
     lateinit var user: User
     lateinit var viewModel: ShoppingViewModel
 }
@@ -69,6 +71,7 @@ internal suspend fun setupUser(testUser: TestUser, options: FirebaseOptions) {
     )
     setUpFirebaseEmulators("127.0.0.1", testUser.app)
     val firestore = Firebase.firestore(testUser.app)
+    testUser.firestore = firestore
     firestore.firestoreSettings = firestoreSettings {
         setLocalCacheSettings(persistentCacheSettings {})
     }
@@ -131,6 +134,15 @@ internal suspend fun <T> Task<T>.awaitInRobolectric(): T {
     return this.await()
 }
 
+internal suspend fun TestUser.disableNetwork() =
+    firestore.disableNetwork().awaitInRobolectric()
+
+internal suspend fun TestUser.enableNetwork() =
+    firestore.enableNetwork().awaitInRobolectric()
+
+internal suspend fun TestUser.waitForPendingWrites() =
+    firestore.waitForPendingWrites().awaitInRobolectric()
+
 /**
  * Sets up a shared list scenario: A and B each create their own list, A shares theirs with B,
  * and B selects the shared list. Returns the shared list's ID.
@@ -154,7 +166,7 @@ internal suspend fun setupSharedList(
     do { stateB = turbineB.awaitItem() }
     while (stateB.lists.none { it.name == userB.listName } || stateB.currentListName != userB.listName)
 
-    val listId = stateA.lists.first { it.isOwner }.id
+    val listId = stateA.lists.first { it.name == userA.listName }.id
     userA.viewModel.selectList(listId)
     userA.viewModel.shareList(userB.email)
 
