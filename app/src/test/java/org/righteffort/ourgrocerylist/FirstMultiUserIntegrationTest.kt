@@ -93,7 +93,9 @@ class FirstMultiUserIntegrationTest {
             userB.viewModel.selectList(listId)
 
             // Drain until User B is observing the shared list with no items.
-            while (stateB.lists.none { it.id == listId } || stateB.uncheckedItems.isNotEmpty()) {
+            // was this, claude thought the other one would be better but something is screwed up
+            // while (stateB.lists.none { it.id == listId } || stateB.uncheckedItems.isNotEmpty()) {
+            while (stateB.isOwner || stateB.lists.none { it.id == listId }) {
                 stateB = turbineB.awaitItem()
             }
             Timber.v("fancy test B sees shared list (empty)")

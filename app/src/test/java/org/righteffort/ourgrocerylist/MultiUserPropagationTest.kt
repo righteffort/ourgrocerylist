@@ -48,6 +48,17 @@ class MultiUserPropagationTest {
     }
 
     @Test
+    fun `null test`() = runTest {
+        turbineScope {
+            val turbineA = userA.viewModel.uiState.testIn(backgroundScope, timeout = 15.seconds)
+            val turbineB = userB.viewModel.uiState.testIn(backgroundScope, timeout = 15.seconds)
+            setupSharedList(userA, turbineA, userB, turbineB)
+            turbineA.cancelAndIgnoreRemainingEvents()
+            turbineB.cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `editor sees pre-existing items`() = runTest {
         turbineScope {
             val turbineA = userA.viewModel.uiState.testIn(backgroundScope, timeout = 15.seconds)

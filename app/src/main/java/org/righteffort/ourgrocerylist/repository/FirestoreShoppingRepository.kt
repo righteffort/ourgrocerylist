@@ -51,6 +51,7 @@ class FirestoreShoppingRepository(
             val delayMs = minOf(250L shl minOf(attempt.toInt(), 5), 8_000L)
             Timber.d("DEBUG FSR observeItems PERMISSION_DENIED attempt=$attempt retrying in ${delayMs}ms collection=${collection.path}")
             delay(delayMs)
+            Timber.d("DEBUG FSR observeItems delay elapsed, restarting listener attempt=$attempt collection=${collection.path}")
             true
         } else false
     }
@@ -92,6 +93,7 @@ class FirestoreShoppingRepository(
             val delayMs = minOf(250L shl minOf(attempt.toInt(), 5), 8_000L)
             Timber.d("DEBUG FSR observeRemotelyModifiedItemIds PERMISSION_DENIED attempt=$attempt retrying in ${delayMs}ms collection=${collection.path}")
             delay(delayMs)
+            Timber.d("DEBUG FSR observeRemotelyModifiedItemIds delay elapsed, restarting listener attempt=$attempt collection=${collection.path}")
             true
         } else false
     }

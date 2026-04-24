@@ -68,7 +68,7 @@ internal suspend fun setupUser(testUser: TestUser, options: FirebaseOptions) {
         testUser.appName,
     )
     setUpFirebaseEmulators("127.0.0.1", testUser.app)
-    val firestore= Firebase.firestore(testUser.app)
+    val firestore = Firebase.firestore(testUser.app)
     firestore.firestoreSettings = firestoreSettings {
         setLocalCacheSettings(persistentCacheSettings {})
     }
@@ -113,6 +113,7 @@ internal fun clearEmulatorData() {
         }
         error("DELETE $url failed with status $lastStatus after 4 attempts")
     }
+
     val projectId = googleServices.projectId
     delete("http://127.0.0.1:8080/emulator/v1/projects/$projectId/databases/(default)/documents")
     delete("http://127.0.0.1:9099/emulator/v1/projects/$projectId/accounts")
