@@ -63,15 +63,11 @@ fun ItemDialog(state: ItemDialogState) {
                 ) {
                     IconButton(
                         onClick = {
-                            if (fields.quantity <= 1.0 && state.onDelete != null) {
-                                state.onDelete.invoke()
-                            } else if (fields.quantity > 1.0) {
-                                val newQuantity = fields.quantity - 1.0
-                                fields = fields.copy(quantity = newQuantity)
-                                quantityText = formatQuantityField(newQuantity)
-                            }
+                            val newQuantity = fields.quantity - 1.0
+                            fields = fields.copy(quantity = newQuantity)
+                            quantityText = formatQuantityField(newQuantity)
                         },
-                        enabled = fields.quantity > 1.0 || state.onDelete != null,
+                        enabled = fields.quantity > 1.0,
                     ) {
                         Text("\u2212")
                     }
