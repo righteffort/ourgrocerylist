@@ -1,5 +1,9 @@
 package org.righteffort.ourgrocerylist.model
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+@Serializable
 sealed class Command {
 
     abstract fun reverse(): Command
@@ -14,18 +18,24 @@ sealed class Command {
         is UncheckItem -> item.id == itemId
     }
 
+    @Serializable
+    @SerialName("add")
     data class AddItem(
         val item: ShoppingItem,
     ) : Command() {
         override fun reverse() = DeleteItem(item)
     }
 
+    @Serializable
+    @SerialName("delete")
     data class DeleteItem(
         val item: ShoppingItem,
     ) : Command() {
         override fun reverse() = AddItem(item)
     }
 
+    @Serializable
+    @SerialName("edit")
     data class EditItem(
         val previousSnapshot: ShoppingItem,
         val newFields: ItemFields,
@@ -36,6 +46,8 @@ sealed class Command {
         )
     }
 
+    @Serializable
+    @SerialName("check")
     data class CheckItem(
         val item: ShoppingItem,
     ) : Command() {
@@ -44,6 +56,8 @@ sealed class Command {
         )
     }
 
+    @Serializable
+    @SerialName("uncheck")
     data class UncheckItem(
         val item: ShoppingItem,
     ) : Command() {

@@ -31,6 +31,7 @@ data class ItemFields(
     }
 }
 
+@Serializable
 data class ShoppingItem(
     val id: String,
     val fields: ItemFields,

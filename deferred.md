@@ -1,4 +1,5 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
+- probably an integration test for undo/redo stack pruning
 - make account & data deletion easy for users (not just 'email me') https://support.google.com/googleplay/android-developer/answer/13327111
 - write a privacy policy 
 - automated backup of firestore (encrypt with per user keys and throw away the key on account deletion)

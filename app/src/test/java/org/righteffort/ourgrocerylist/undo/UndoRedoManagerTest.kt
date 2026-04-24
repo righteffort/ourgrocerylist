@@ -1,7 +1,9 @@
 package org.righteffort.ourgrocerylist.undo
 
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -9,10 +11,12 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.model.ShoppingItem
 import org.righteffort.ourgrocerylist.repository.FakeShoppingRepository
+import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UndoRedoManagerTest {
@@ -242,5 +246,56 @@ class UndoRedoManagerTest {
         manager.pruneForRemoteWrite("unknown-id")
 
         assertTrue(manager.state.value.undoAvailable)
+    }
+
+    // --- persistence ---
+
+    @TempDir
+    lateinit var tempDir: File
+
+    private fun makeStackRepo(): UndoRedoStackRepository {
+        val dataStore = PreferenceDataStoreFactory.create(
+            scope = TestScope(UnconfinedTestDispatcher()),
+            produceFile = { tempDir.resolve("test.preferences_pb") },
+        )
+        return UndoRedoStackRepository(dataStore, "list-1")
+    }
+
+    @Test
+    fun `initialize restores undo availability from persisted stacks`() = runTest(UnconfinedTestDispatcher()) {
+        val stackRepo = makeStackRepo()
+        val manager1 = UndoRedoManager(FakeShoppingRepository(), stackRepo)
+        manager1.initialize()
+        manager1.execute(Command.AddItem(item("Bread")))
+
+        val manager2 = UndoRedoManager(FakeShoppingRepository(), stackRepo)
+        assertFalse(manager2.state.value.undoAvailable)
+        manager2.initialize()
+        assertTrue(manager2.state.value.undoAvailable)
+    }
+
+    @Test
+    fun `initialize restores both undo and redo stacks`() = runTest(UnconfinedTestDispatcher()) {
+        val stackRepo = makeStackRepo()
+        val manager1 = UndoRedoManager(FakeShoppingRepository(), stackRepo)
+        manager1.initialize()
+        manager1.execute(Command.AddItem(item("Bread")))
+        manager1.execute(Command.AddItem(item("Milk")))
+        manager1.undo()
+
+        val manager2 = UndoRedoManager(FakeShoppingRepository(), stackRepo)
+        manager2.initialize()
+        assertTrue(manager2.state.value.undoAvailable)
+        assertTrue(manager2.state.value.redoAvailable)
+    }
+
+    @Test
+    fun `no stack repository leaves behavior unchanged`() = runTest(UnconfinedTestDispatcher()) {
+        val manager = UndoRedoManager(FakeShoppingRepository())
+        manager.initialize()
+        manager.execute(Command.AddItem(item("Bread")))
+        assertTrue(manager.state.value.undoAvailable)
+        manager.undo()
+        assertFalse(manager.state.value.undoAvailable)
     }
 }

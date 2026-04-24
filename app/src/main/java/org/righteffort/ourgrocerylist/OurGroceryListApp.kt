@@ -66,6 +66,8 @@ class OurGroceryListApp : Application() {
         }
     }
 
+    val preferences: DataStore<Preferences> get() = dataStore
+
     val clientId: String by lazy {
         runBlocking { ClientIdRepository(dataStore).getOrCreate() }
     }

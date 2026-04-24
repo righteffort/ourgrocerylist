@@ -31,6 +31,7 @@ import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.ListRepository
 import org.righteffort.ourgrocerylist.repository.ShoppingRepository
 import org.righteffort.ourgrocerylist.undo.UndoRedoManager
+import org.righteffort.ourgrocerylist.undo.UndoRedoStackRepository
 import org.righteffort.ourgrocerylist.undo.UndoRedoState
 import org.righteffort.ourgrocerylist.util.CsvExporter
 import org.righteffort.ourgrocerylist.util.CsvImporter
@@ -44,6 +45,7 @@ class ShoppingViewModel(
     private val listRepository: ListRepository,
     private val repositoryFactory: (ownerUid: String, listId: String) -> ShoppingRepository,
     appErrors: Flow<String> = emptyFlow(),
+    private val stackRepositoryFactory: ((listId: String) -> UndoRedoStackRepository)? = null,
 ) : ViewModel() {
 
     private data class ListResources(
@@ -203,7 +205,7 @@ class ShoppingViewModel(
     private fun getOrCreateResources(list: ListMetadata): ListResources =
         listResources.getOrPut(list.id) {
             val repo = repositoryFactory(list.ownerUid, list.id)
-            val undoRedoManager = UndoRedoManager(repo)
+            val undoRedoManager = UndoRedoManager(repo, stackRepositoryFactory?.invoke(list.id))
 
             // Note FirestoreException from downstream
             // observeRemotelyModifiedItems should eventually succeed,
@@ -213,6 +215,7 @@ class ShoppingViewModel(
             // can only occur is only possible after the list creation
             // reaches the server.
             val job = viewModelScope.launch {
+                undoRedoManager.initialize()
                 repo.observeRemotelyModifiedItemIds()
                     .catch { e ->
                         Timber.d("SVM ${currentUserFlow.value?.email} failed to observe remote changes for ${list.id}, can't trust undo/redo!");

@@ -17,6 +17,7 @@ import org.righteffort.ourgrocerylist.DebugFirebaseEnvironment
 import org.righteffort.ourgrocerylist.OurGroceryListApp
 import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
 import org.righteffort.ourgrocerylist.ui.theme.OurGroceryListTheme
+import org.righteffort.ourgrocerylist.undo.UndoRedoStackRepository
 import timber.log.Timber
 
 class MainActivity : ComponentActivity() {
@@ -37,6 +38,9 @@ class MainActivity : ComponentActivity() {
                         )
                     },
                     appErrors = app.initErrors,
+                    stackRepositoryFactory = { listId ->
+                        UndoRedoStackRepository(app.preferences, listId)
+                    },
                 )
             }
         }
