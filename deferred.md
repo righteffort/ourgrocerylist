@@ -1,27 +1,18 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
+- add one or more tests to @app/src/test/java/org/righteffort/ourgrocerylist/ResilienceIntegrationTest.kt that exercise competing list additions and deletions
+- continue the stashed work in ShoppingViewModel and IntegrationTestFixtures in session4-resilience-torture-tests ... e.g. the string "_pendingAddListIds" or "compensation" in the former,  "internal suspend fun TestUser.disableNetwork" in the latter.
 - spinner/loading instead of mysterious ".." list on startup would be nice
 - run integration tests in both disconnected and connected mode
   - `FirebaseFirestore.getInstance(userA.app).disableNetwork().await()` before, `enableNetwork` after
-- DONE Reduce integration test/code coupling: see claude session `integration-test-coupling`, which advises "Fix it in the ViewModel — emit _lists and _currentListId as an atomic pair so uiState never has a state where currentListName doesn't match a list in lists. Harder, but the tests become simpler."
-- DONE "The Triple in the combine is a minor style thing. error-handling inconsistency in observeItems (it calls logAndEmitFatalError then emits emptyList() and continues"
-- DONE make it easy to switch between prod, emulator via 127.0.0.1, emulator via magic ip address
-- import trader joe's fails weirdly and silently (partial import)
-- spurious permission denied when importing list but import succeeds
-- adopt timber or something so we can drop printlns in prod and see Log.d
 - together
   - review for code that compromises strong typechecking (e.g. by using typescript syntax, overly permissive casts in any language)
   - review for swallowed errors
   - review locations that throw 'fatal' errors to see if they are recoverable at a lower level than the application 'root'
-- DONE get first integration test working & write down how to run it: ./gradlew testDebugUnitTest -PrunIntegration
 - behavior when firebase functions are unavailable is weak: "INTERNAL"
 - behavior when creating list and firestore offline is weak (at least i think that's the cause of this): PERMISSION_DENIED: evaluation error at L87:16 for 'list' @ L87, Null value error. for 'list' @ L87. Or maybe worse, silently does nothing! 
-- get rid of 'decrement below 0 == delete', disable '-' in stepper when quanity <= 1
 - metadata in lists and items: at least creation and modification time
-- initial launch is buggy: sometimes get two 'Groceries' lists
-- deleting last list results in null value error
 - allowlist in firestore `authorizedUsers` collection of empty documents with email as id, then `function isAuthorized() { return request.auth != null && exists(/databases/$(database)/documents/authorizedUsers/$(request.auth.email)); }`
-- get rid of delayed navigation to new list created when offline --
-  see TODO in ShoppingViewModel.kt
+- TODOs generally
 - nail down ownership model for firebase-related objects and how to
   support multiple instances of ShoppingViewModel in integration tests.
   - in theory:
@@ -44,19 +35,10 @@ These aspects have not yet been fully designed and implemented and are deferred 
 	  - a SharingRepository
 	  - appErrors, just for bubbling up errors I think
 	  - seems like it just organically grew over time?
-- integration test clearing state
-  - use httpclient for nicer status code check
-  - clearpersistence though i'm not convinced it is necessary
 - sits in a fast fail loop if unable to create initial list, no backoff at all
 - check that https://console.cloud.google.com/run/detail/us-west1/deletelist/security?project=ourgrocerylist doesn't say public access
-- delete list says 'unauthenticated'
-- race condition on import (and create?) ? we get a null failure in
-  firestore rules when we try to observe the list, but the list is imported
-- race condition (?) on delete list, continues to hang around in UI after it is gone.
-- default imported list name to basename of filename ('List.csv' -> 'List')
 - coderabbit feedback
 - bug: add editor succeeds but dialog box stays up
-- ugh: have to allow allUsers access to functions
 - persist undo/redo
 - persist selected list
 - sensible error handling
