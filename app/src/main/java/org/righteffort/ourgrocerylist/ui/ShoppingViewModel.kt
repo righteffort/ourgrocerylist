@@ -163,7 +163,9 @@ class ShoppingViewModel(
 
                     // Atomically update lists and currentListId so uiState never emits a state
                     // where currentListName doesn't match a list in lists.
+                    Timber.v("DEBUG SVM time to update _listSelection")
                     _listSelection.update { current ->
+                        Timber.v("DEBUG SVM maybe change selected to current.currentListId=${current.currentListId}; newIds=$newIds _pendingAddListIds=$_pendingAddListIds")
                         val newCurrentId =
                             if (current.currentListId == null ||
                                 (current.currentListId !in newIds && current.currentListId !in _pendingAddListIds)) {
@@ -178,9 +180,10 @@ class ShoppingViewModel(
                                 // list is confirmed. This is distinct from listResources, which is
                                 // removed during cleanup before this lambda runs.
                                 val selected = lists.firstOrNull { it.isOwner } ?: lists.first()
-                                Timber.v("DEBUG SVM auto-selecting list id=${selected.id}")
+                                Timber.v("DEBUG SVM preferred auto-selecting list id=${selected.id} over current.currentListId")
                                 selected.id
                             } else {
+                                Timber.v("DEBUG SVM went with current.currentListId")
                                 current.currentListId
                             }
                         ListSelectionState(lists, newCurrentId)
@@ -210,7 +213,7 @@ class ShoppingViewModel(
         // shared to you). The inner combine re-subscribes to _listSelection for lists so that
         // metadata changes are still reflected without restarting the items subscription.
         _listSelection.map { it.currentListId }.distinctUntilChanged().flatMapLatest { listId ->
-            Timber.v("DEBUG SVM uiState listId=$listId")
+            Timber.v("DEBUG SVM uiState flow listId=$listId")
             if (listId == null) {
                 _listSelection.map { ActiveListState(null, it.lists, emptyList(), UndoRedoState()) }
             } else {
@@ -225,6 +228,7 @@ class ShoppingViewModel(
                     resources.undoRedoManager.state,
                     _listSelection,
                 ) { items, undoState, listSelection ->
+                    Timber.v("DEBUG SVM uiState flow i think emitting state that includes listId=$listId")
                     ActiveListState(listId, listSelection.lists, items, undoState)
                 }
             }
@@ -232,7 +236,7 @@ class ShoppingViewModel(
         currentUserFlow,
     ) { activeListState, currentUser ->
         val currentList = activeListState.lists.find { it.id == activeListState.listId }
-        Timber.v("DEBUG SVM building UiState lists=${activeListState.lists.map { it.id }} currentList=${currentList?.id}")
+        Timber.v("DEBUG SVM building UiState lists=${activeListState.lists.map { it }} currentList=${currentList}")
         val (checked, unchecked) = activeListState.items.partition { it.fields.checked }
         Timber.v("DEBUG SVM constructing UiState listId=${activeListState.listId} items=${activeListState.items} lists=${activeListState.lists}")
         UiState(
@@ -246,7 +250,7 @@ class ShoppingViewModel(
             currentUserEmail = currentUser?.email ?: "",
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState())
-
+    // TODO: what does the stopTimeoutMillis above do?
     // --- Item operations ---
 
     fun addItem(name: String) {

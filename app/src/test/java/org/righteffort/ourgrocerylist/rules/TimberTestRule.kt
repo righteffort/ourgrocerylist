@@ -2,6 +2,8 @@ package org.righteffort.ourgrocerylist.rules
 
 import org.junit.rules.ExternalResource
 import timber.log.Timber
+import java.text.SimpleDateFormat
+import java.util.Date
 
 
 class TimberTestRule : ExternalResource() {
@@ -27,7 +29,7 @@ class TimberTestRule : ExternalResource() {
                 android.util.Log.ASSERT  -> "A"
                 else                     -> priority.toString()
             }
-            println(if (tag != null) "$level/$tag: $message" else "$level: $message")
+            println(if (tag != null) "${SimpleDateFormat("HH:mm:ss.SSS").format(Date())} $level/$tag: $message" else "$level: $message")
         }
     }
 }

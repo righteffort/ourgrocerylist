@@ -4,6 +4,9 @@ import app.cash.turbine.turbineScope
 import com.google.firebase.FirebaseOptions
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -17,7 +20,15 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
 import timber.log.Timber
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.debug.DebugProbes
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 
+
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(application = IntegrationTestApp::class)
 @LooperMode(LooperMode.Mode.INSTRUMENTATION_TEST)
@@ -33,6 +44,7 @@ class FirstMultiUserIntegrationTest {
     @Before
     fun setUp() = runTest {
         clearEmulatorData()
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         val defaultOptions = FirebaseOptions.Builder()
             .setProjectId(googleServices.projectId)
             .setApplicationId(googleServices.appId)
@@ -46,6 +58,7 @@ class FirstMultiUserIntegrationTest {
 
     @After
     fun tearDown() {
+        Dispatchers.resetMain()
         // TODO are any of these async/suspend ?
         Timber.v("DEBUG starting tearDown")
         userA.app.delete()

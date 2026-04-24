@@ -9,6 +9,7 @@ espressoCore = "3.6.0"  # https://developer.android.com/jetpack/androidx/release
 appcompat = "1.7.1"  # https://developer.android.com/jetpack/androidx/releases/appcompat
 composeBom = "2026.03.01"  # https://developer.android.com/develop/ui/compose/bom/bom-mapping
 coroutines-test = "1.10.2"  # https://github.com/Kotlin/kotlinx.coroutines/releases
+coroutines-debug = "1.4.0"  # https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-debug/
 activity = "1.13.0"  # https://developer.android.com/jetpack/androidx/releases/activity
 lifecycle = "2.10.0"  # https://developer.android.com/jetpack/androidx/releases/lifecycle
 google-services = "4.4.4"  # https://developers.google.com/android/guides/google-services-plugin
@@ -40,6 +41,7 @@ androidx-compose-material-icons-core = { group = "androidx.compose.material", na
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines-test" }
+kotlinx-coroutines-debug = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-debug", version.ref = "coroutines-debug" }
 firebase-bom = { group = "com.google.firebase", name="firebase-bom", version.ref = "firebase-bom" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }

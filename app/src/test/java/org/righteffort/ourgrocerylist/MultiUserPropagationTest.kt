@@ -5,7 +5,12 @@ import com.google.firebase.FirebaseOptions
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -18,6 +23,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
 import kotlin.time.Duration.Companion.seconds
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(application = IntegrationTestApp::class)
 @LooperMode(LooperMode.Mode.INSTRUMENTATION_TEST)
@@ -31,6 +37,7 @@ class MultiUserPropagationTest {
     @Before
     fun setUp() = runTest {
         clearEmulatorData()
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         val defaultOptions = FirebaseOptions.Builder()
             .setProjectId(googleServices.projectId)
             .setApplicationId(googleServices.appId)
@@ -42,6 +49,7 @@ class MultiUserPropagationTest {
 
     @After
     fun tearDown() {
+        Dispatchers.resetMain()
         userA.app.delete()
         userB.app.delete()
         clearEmulatorData()

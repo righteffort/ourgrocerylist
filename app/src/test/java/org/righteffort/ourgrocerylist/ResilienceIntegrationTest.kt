@@ -42,7 +42,7 @@ class ResilienceIntegrationTest {
     fun setUp() = runTest {
         clearEmulatorData()
         Dispatchers.setMain(UnconfinedTestDispatcher())
-        FirebaseFirestore.setLoggingEnabled(true)
+        // FirebaseFirestore.setLoggingEnabled(true)
         val defaultOptions = FirebaseOptions.Builder()
             .setProjectId(googleServices.projectId)
             .setApplicationId(googleServices.appId)
@@ -308,7 +308,7 @@ class ResilienceIntegrationTest {
             var stateA = turbineA.awaitItem()
             while (stateA.uncheckedItems.none { it.fields.name == "Bread" }) { stateA = turbineA.awaitItem() }
 
-            // A undoes — the Milk add (most recent valid entry) is reversed.
+            // User A undoes — the Milk add (most recent valid entry) is reversed.
             userA.viewModel.undo()
             while (stateA.uncheckedItems.any { it.fields.name == "Milk" }) { stateA = turbineA.awaitItem() }
             assertFalse(stateA.uncheckedItems.any { it.fields.name == "Milk" })
