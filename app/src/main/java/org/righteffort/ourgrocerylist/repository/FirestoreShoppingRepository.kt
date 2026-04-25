@@ -25,33 +25,34 @@ class FirestoreShoppingRepository(
     override fun newItemId(): String = collection.document().id
 
     override fun observeItems(): Flow<List<ShoppingItem>> = callbackFlow {
-        Timber.d("RACE_DEBUG FSR observeItems starting listener collection=${collection.path}")
+        Timber.v("RACE_DEBUG FSR listId=$listId observeItems starting listener collection=${collection.path}")
         val listener = collection.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                Timber.d("DEBUG FSR observeItems error=$error  collection=${collection.path}")
+                Timber.v("DEBUG FSR listId=$listId observeItems error=$error  collection=${collection.path}")
                 close(error)
                 return@addSnapshotListener
             }
             val items = snapshot?.documents?.mapNotNull { it.toShoppingItem() } ?: emptyList()
-            Timber.d("DEBUG FSR items observe items=$items collection=${collection.path}")
+            Timber.v("DEBUG FSR listId=$listId items observe items=$items collection=${collection.path}")
             trySend(items)
         }
         awaitClose {
-            Timber.d("DEBUG FSR observeItems awaitClose — listener removed collection=${collection.path}")
+            Timber.v("DEBUG FSR listId=$listId observeItems awaitClose — listener removed collection=${collection.path}")
             listener.remove()
         }
     }.retryWhen { cause, attempt ->
         // PERMISSION_DENIED is transient when a newly created list hasn't been committed
         // server-side yet but the ownedListener has already fired on the local optimistic
         // write (hasPendingWrites=true). Retry indefinitely to let the server catch up;
-        // the coroutine is cancelled when the list is removed from listResources.
+        // the coroutine is canceled when the list is removed from listResources.
+	// Hopefull the UX is ok if we get here.
         val transient = cause is FirebaseFirestoreException &&
             cause.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
         if (transient) {
             val delayMs = minOf(250L shl minOf(attempt.toInt(), 5), 8_000L)
-            Timber.d("DEBUG FSR observeItems PERMISSION_DENIED attempt=$attempt retrying in ${delayMs}ms collection=${collection.path}")
+            Timber.v("DEBUG FSR listId=$listId observeItems PERMISSION_DENIED attempt=$attempt retrying in ${delayMs}ms collection=${collection.path}")
             delay(delayMs)
-            Timber.d("DEBUG FSR observeItems delay elapsed, restarting listener attempt=$attempt collection=${collection.path}")
+            Timber.v("DEBUG FSR listId=$listId observeItems delay elapsed, retrying listener attempt=$attempt collection=${collection.path}")
             true
         } else false
     }
@@ -62,10 +63,10 @@ class FirestoreShoppingRepository(
     // because the initial snapshot reports all existing documents as ADDED regardless
     // of authorship, which would incorrectly trigger pruning for our own past writes.
     override fun observeRemotelyModifiedItemIds(): Flow<Set<String>> = callbackFlow {
-        Timber.d("RACE_DEBUG FSR observeRemotelyModifiedItemIds starting listener collection=${collection.path}")
+        Timber.v("RACE_DEBUG FSR listId=$listId observeRemotelyModifiedItemIds starting listener collection=${collection.path}")
         val listener = collection.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                Timber.d("DEBUG FSR error non-null oh well collection=${collection.path}")
+                Timber.v("DEBUG FSR listId=$listId error non-null oh well collection=${collection.path}")
                 close(error)
                 return@addSnapshotListener
             }
@@ -79,10 +80,10 @@ class FirestoreShoppingRepository(
                 ?.toSet()
                 ?: emptySet()
             if (remoteIds.isNotEmpty()) trySend(remoteIds)
-            Timber.d("DEBUG FSR items observe remoteIds=$remoteIds collection=${collection.path}")
+            Timber.v("DEBUG FSR listId=$listId items observe remoteIds=$remoteIds collection=${collection.path}")
         }
         awaitClose {
-            Timber.d("DEBUG FSR observeRemotelyModifiedItemIds awaitClose — listener removed collection=${collection.path}")
+            Timber.v("DEBUG FSR listId=$listId observeRemotelyModifiedItemIds awaitClose — listener removed collection=${collection.path}")
             listener.remove()
         }
     }.retryWhen { cause, attempt ->
@@ -91,9 +92,9 @@ class FirestoreShoppingRepository(
             cause.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
         if (transient) {
             val delayMs = minOf(250L shl minOf(attempt.toInt(), 5), 8_000L)
-            Timber.d("DEBUG FSR observeRemotelyModifiedItemIds PERMISSION_DENIED attempt=$attempt retrying in ${delayMs}ms collection=${collection.path}")
+            Timber.v("DEBUG FSR listId=$listId observeRemotelyModifiedItemIds PERMISSION_DENIED attempt=$attempt retrying in ${delayMs}ms collection=${collection.path}")
             delay(delayMs)
-            Timber.d("DEBUG FSR observeRemotelyModifiedItemIds delay elapsed, restarting listener attempt=$attempt collection=${collection.path}")
+            Timber.v("DEBUG FSR listId=$listId observeRemotelyModifiedItemIds delay elapsed, retrying listener attempt=$attempt collection=${collection.path}")
             true
         } else false
     }
@@ -109,7 +110,7 @@ class FirestoreShoppingRepository(
     }
 
     private fun writeItem(id: String, fields: ItemFields) {
-        Timber.d("DEBUG FSR writeItem id=$id fields=$fields")
+        Timber.v("DEBUG FSR writeItem id=$id fields=$fields")
         collection.document(id).set(itemToFirestoreData(fields, clientId))
     }
 

@@ -3,12 +3,15 @@ package org.righteffort.ourgrocerylist
 import app.cash.turbine.test
 import app.cash.turbine.turbineScope
 import com.google.firebase.FirebaseOptions
-import com.google.firebase.firestore.FirebaseFirestore
-import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertEquals
+import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.debug.DebugProbes
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -24,8 +27,8 @@ import org.righteffort.ourgrocerylist.ui.UiState
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
-import kotlin.time.Duration.Companion.seconds
 import timber.log.Timber
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -35,12 +38,15 @@ class ResilienceIntegrationTest {
     @get:Rule
     val timberRule = TimberTestRule()
 
-    private val userA = TestUser(email = "test1@test.invalid", listName = "User A List", appName = "userA")
-    private val userB = TestUser(email = "test2@test.invalid", listName = "User B List", appName = "userB")
+    private val userA =
+        TestUser(email = "test1@test.invalid", listName = "User A List", appName = "userA")
+    private val userB =
+        TestUser(email = "test2@test.invalid", listName = "User B List", appName = "userB")
 
     @Before
     fun setUp() = runTest {
         clearEmulatorData()
+        // DebugProbes.install()
         Dispatchers.setMain(UnconfinedTestDispatcher())
         // FirebaseFirestore.setLoggingEnabled(true)
         val defaultOptions = FirebaseOptions.Builder()
@@ -54,6 +60,7 @@ class ResilienceIntegrationTest {
 
     @After
     fun tearDown() {
+        // DebugProbes.uninstall()
         Dispatchers.resetMain()
         userA.app.delete()
         userB.app.delete()
@@ -67,15 +74,25 @@ class ResilienceIntegrationTest {
         userA.viewModel.uiState.test(timeout = 15.seconds) {
             userA.viewModel.addList("Groceries")
             var state: UiState
-            do { state = awaitItem() } while (state.lists.none { it.name == "Groceries" } || state.currentListName != "Groceries")
+            do {
+                state = awaitItem()
+            } while (state.lists.none { it.name == "Groceries" } || state.currentListName != "Groceries")
 
             userA.disableNetwork()
 
             for (name in listOf("Eggs", "Milk", "Bread")) {
                 userA.viewModel.openAddDialog("")
-                userA.viewModel.dialogState.value!!.onSave(ItemFields(name = name, quantity = 1.0, checked = false))
+                userA.viewModel.dialogState.value!!.onSave(
+                    ItemFields(
+                        name = name,
+                        quantity = 1.0,
+                        checked = false
+                    )
+                )
             }
-            while (state.uncheckedItems.size < 3) { state = awaitItem() }
+            while (state.uncheckedItems.size < 3) {
+                state = awaitItem()
+            }
 
             assertTrue(state.uncheckedItems.any { it.fields.name == "Eggs" })
             assertTrue(state.uncheckedItems.any { it.fields.name == "Milk" })
@@ -97,16 +114,28 @@ class ResilienceIntegrationTest {
         userA.viewModel.uiState.test(timeout = 15.seconds) {
             userA.viewModel.addList("Groceries")
             var state: UiState
-            do { state = awaitItem() } while (state.lists.none { it.name == "Groceries" } || state.currentListName != "Groceries")
+            do {
+                state = awaitItem()
+            } while (state.lists.none { it.name == "Groceries" } || state.currentListName != "Groceries")
 
             userA.disableNetwork()
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Eggs", quantity = 1.0, checked = false))
-            while (state.uncheckedItems.none { it.fields.name == "Eggs" }) { state = awaitItem() }
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Eggs",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
+            while (state.uncheckedItems.none { it.fields.name == "Eggs" }) {
+                state = awaitItem()
+            }
 
             userA.viewModel.undo()
-            while (state.uncheckedItems.any { it.fields.name == "Eggs" }) { state = awaitItem() }
+            while (state.uncheckedItems.any { it.fields.name == "Eggs" }) {
+                state = awaitItem()
+            }
 
             userA.enableNetwork()
             userA.waitForPendingWrites()
@@ -122,20 +151,34 @@ class ResilienceIntegrationTest {
         userA.viewModel.uiState.test(timeout = 15.seconds) {
             userA.viewModel.addList("Groceries")
             var state: UiState
-            do { state = awaitItem() } while (state.lists.none { it.name == "Groceries" } || state.currentListName != "Groceries")
+            do {
+                state = awaitItem()
+            } while (state.lists.none { it.name == "Groceries" } || state.currentListName != "Groceries")
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Milk", quantity = 1.0, checked = false))
-            while (state.uncheckedItems.none { it.fields.name == "Milk" }) { state = awaitItem() }
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Milk",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
+            while (state.uncheckedItems.none { it.fields.name == "Milk" }) {
+                state = awaitItem()
+            }
             userA.waitForPendingWrites()
 
             userA.disableNetwork()
 
             userA.viewModel.checkItem(state.uncheckedItems.first { it.fields.name == "Milk" })
-            while (state.checkedItems.none { it.fields.name == "Milk" }) { state = awaitItem() }
+            while (state.checkedItems.none { it.fields.name == "Milk" }) {
+                state = awaitItem()
+            }
 
             userA.viewModel.undo()
-            while (state.uncheckedItems.none { it.fields.name == "Milk" }) { state = awaitItem() }
+            while (state.uncheckedItems.none { it.fields.name == "Milk" }) {
+                state = awaitItem()
+            }
 
             userA.enableNetwork()
             userA.waitForPendingWrites()
@@ -152,21 +195,37 @@ class ResilienceIntegrationTest {
         userA.viewModel.uiState.test(timeout = 15.seconds) {
             userA.viewModel.addList("Groceries")
             var state: UiState
-            do { state = awaitItem() } while (state.lists.none { it.name == "Groceries" } || state.currentListName != "Groceries")
+            do {
+                state = awaitItem()
+            } while (state.lists.none { it.name == "Groceries" } || state.currentListName != "Groceries")
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Apples", quantity = 1.0, checked = false))
-            while (state.uncheckedItems.none { it.fields.name == "Apples" }) { state = awaitItem() }
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Apples",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
+            while (state.uncheckedItems.none { it.fields.name == "Apples" }) {
+                state = awaitItem()
+            }
             userA.waitForPendingWrites()
 
             userA.disableNetwork()
             userA.enableNetwork()
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Oranges", quantity = 1.0, checked = false))
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Oranges",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
 
             while (state.uncheckedItems.none { it.fields.name == "Oranges" } ||
-                   state.uncheckedItems.none { it.fields.name == "Apples" }) {
+                state.uncheckedItems.none { it.fields.name == "Apples" }) {
                 state = awaitItem()
             }
 
@@ -184,12 +243,22 @@ class ResilienceIntegrationTest {
             // fires observeLists, which is what triggers the PERMISSION_DENIED race window.
             userA.viewModel.addList("New List")
             var state: UiState
-            do { state = awaitItem() } while (state.lists.none { it.name == "New List" })
+            do {
+                state = awaitItem()
+            } while (state.lists.none { it.name == "New List" })
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Instant", quantity = 1.0, checked = false))
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Instant",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
 
-            while (state.uncheckedItems.none { it.fields.name == "Instant" }) { state = awaitItem() }
+            while (state.uncheckedItems.none { it.fields.name == "Instant" }) {
+                state = awaitItem()
+            }
 
             userA.waitForPendingWrites()
             assertTrue(state.uncheckedItems.any { it.fields.name == "Instant" })
@@ -199,51 +268,87 @@ class ResilienceIntegrationTest {
     }
 
     @Test
-    fun `multiple rapid list creations items isolated`() = runTest {
-        userA.viewModel.uiState.test(timeout = 15.seconds) {
-            userA.viewModel.addList("L1")
-            userA.viewModel.addList("L2")
-            userA.viewModel.addList("L3")
+    fun `multiple rapid list creations items isolated`() = runTest {  // TODO: flaky
+//        launch {
+//            delay(2000)
+//            DebugProbes.dumpCoroutines(System.err)
+//        }
+        userA.viewModel.uiState
+            .onEach { Timber.v("userB uiState emission: $it") }
+            .test(timeout = 10.seconds) {
+                userA.viewModel.addList("L1")
+                userA.viewModel.addList("L2")
+                userA.viewModel.addList("L3")
 
-            var state: UiState
-            Timber.v("DEBUG rapid-lists: starting drain")
-            do {
-                state = awaitItem()
-                Timber.v("DEBUG rapid-lists drain: currentListName=${state.currentListName} lists=${state.lists.map { it.name }}")
-            } while (
-                state.lists.none { it.name == "L1" } ||
-                state.lists.none { it.name == "L2" } ||
-                state.lists.none { it.name == "L3" } ||
-                state.currentListName != "L3"
-            )
+                var state: UiState
+                Timber.v("DEBUG rapid-lists: starting drain")
+                do {
+                    state = awaitItem()
+                    Timber.v("DEBUG rapid-lists drain: currentListName=${state.currentListName} lists=${state.lists.map { it.name }}")
+                } while (
+                    state.lists.none { it.name == "L1" } ||
+                    state.lists.none { it.name == "L2" } ||
+                    state.lists.none { it.name == "L3" } ||
+                    state.currentListName != "L3"
+                )
 
-            val l1Id = state.lists.first { it.name == "L1" }.id
-            val l2Id = state.lists.first { it.name == "L2" }.id
+                val l1Id = state.lists.first { it.name == "L1" }.id
+                val l2Id = state.lists.first { it.name == "L2" }.id
 
-            userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "ItemC", quantity = 1.0, checked = false))
-            while (state.uncheckedItems.none { it.fields.name == "ItemC" }) { state = awaitItem() }
-            assertEquals(1, state.uncheckedItems.size)
+                userA.viewModel.openAddDialog("")
+                userA.viewModel.dialogState.value!!.onSave(
+                    ItemFields(
+                        name = "ItemC",
+                        quantity = 1.0,
+                        checked = false
+                    )
+                )
+                while (state.uncheckedItems.none { it.fields.name == "ItemC" }) {
+                    state = awaitItem()
+                }
+                assertEquals(1, state.uncheckedItems.size)
 
-            userA.viewModel.selectList(l2Id)
-            while (state.currentListName != "L2") { state = awaitItem() }
+                Timber.v("DEBUG rapid-lists after add itemC to L3 state=$state")
+                userA.viewModel.selectList(l2Id)
+                while (state.currentListName != "L2") {
+                    state = awaitItem()
+                    Timber.v("DEBUG rapid-lists after switch to L2 state=$state")
+                }  // TODO: flaky sometimes can time out here
 
-            userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "ItemB", quantity = 1.0, checked = false))
-            while (state.uncheckedItems.none { it.fields.name == "ItemB" }) { state = awaitItem() }
-            assertEquals(1, state.uncheckedItems.size)
+                userA.viewModel.openAddDialog("")
+                userA.viewModel.dialogState.value!!.onSave(
+                    ItemFields(
+                        name = "ItemB",
+                        quantity = 1.0,
+                        checked = false
+                    )
+                )
+                while (state.uncheckedItems.none { it.fields.name == "ItemB" }) {
+                    state = awaitItem()
+                }
+                assertEquals(1, state.uncheckedItems.size)
 
-            userA.viewModel.selectList(l1Id)
-            while (state.currentListName != "L1") { state = awaitItem() }
+                userA.viewModel.selectList(l1Id)
+                while (state.currentListName != "L1") {
+                    state = awaitItem()
+                }
 
-            userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "ItemA", quantity = 1.0, checked = false))
-            while (state.uncheckedItems.none { it.fields.name == "ItemA" }) { state = awaitItem() }
-            assertEquals(1, state.uncheckedItems.size)
-            assertEquals("ItemA", state.uncheckedItems.single().fields.name)
+                userA.viewModel.openAddDialog("")
+                userA.viewModel.dialogState.value!!.onSave(
+                    ItemFields(
+                        name = "ItemA",
+                        quantity = 1.0,
+                        checked = false
+                    )
+                )
+                while (state.uncheckedItems.none { it.fields.name == "ItemA" }) {
+                    state = awaitItem()
+                }
+                assertEquals(1, state.uncheckedItems.size)
+                assertEquals("ItemA", state.uncheckedItems.single().fields.name)
 
-            cancelAndIgnoreRemainingEvents()
-        }
+                cancelAndIgnoreRemainingEvents()
+            }
     }
 
     @Test
@@ -251,20 +356,40 @@ class ResilienceIntegrationTest {
         userA.viewModel.uiState.test(timeout = 15.seconds) {
             userA.viewModel.addList("List A")
             var state: UiState
-            do { state = awaitItem() } while (state.lists.none { it.name == "List A" } || state.currentListName != "List A")
+            do {
+                state = awaitItem()
+            } while (state.lists.none { it.name == "List A" } || state.currentListName != "List A")
             val listAId = state.lists.first { it.name == "List A" }.id
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Apples", quantity = 1.0, checked = false))
-            while (state.uncheckedItems.none { it.fields.name == "Apples" }) { state = awaitItem() }
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Apples",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
+            while (state.uncheckedItems.none { it.fields.name == "Apples" }) {
+                state = awaitItem()
+            }
             userA.waitForPendingWrites()
 
             userA.viewModel.addList("List B")
-            while (state.lists.none { it.name == "List B" } || state.currentListName != "List B") { state = awaitItem() }
+            while (state.lists.none { it.name == "List B" } || state.currentListName != "List B") {
+                state = awaitItem()
+            }
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Bread", quantity = 1.0, checked = false))
-            while (state.uncheckedItems.none { it.fields.name == "Bread" }) { state = awaitItem() }
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Bread",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
+            while (state.uncheckedItems.none { it.fields.name == "Bread" }) {
+                state = awaitItem()
+            }
             userA.waitForPendingWrites()
 
             userA.disableNetwork()
@@ -272,7 +397,9 @@ class ResilienceIntegrationTest {
             userA.viewModel.selectList(listAId)
             // Drain only for currentListName — "Apples" must already be present in the same
             // state, served from the warm cache kept by observeRemotelyModifiedItemIds.
-            while (state.currentListName != "List A") { state = awaitItem() }
+            while (state.currentListName != "List A") {
+                state = awaitItem()
+            }
 
             assertTrue(state.uncheckedItems.any { it.fields.name == "Apples" })
 
@@ -291,29 +418,49 @@ class ResilienceIntegrationTest {
             setupSharedList(userA, turbineA, userB, turbineB)
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Eggs", quantity = 1.0, checked = false))
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Eggs",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
 
             var stateB = turbineB.awaitItem()
-            while (stateB.uncheckedItems.none { it.fields.name == "Eggs" }) { stateB = turbineB.awaitItem() }
+            while (stateB.uncheckedItems.none { it.fields.name == "Eggs" }) {
+                stateB = turbineB.awaitItem()
+            }
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Milk", quantity = 1.0, checked = false))
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Milk",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
 
-            while (stateB.uncheckedItems.none { it.fields.name == "Milk" }) { stateB = turbineB.awaitItem() }
+            while (stateB.uncheckedItems.none { it.fields.name == "Milk" }) {
+                stateB = turbineB.awaitItem()
+            }
 
             // B edits "Eggs" → "Bread"; this remote write to that item ID prunes A's undo entry for it.
             val eggsItem = stateB.uncheckedItems.first { it.fields.name == "Eggs" }
             userB.viewModel.editItem(eggsItem, eggsItem.fields.copy(name = "Bread"))
 
             var stateA = turbineA.awaitItem()
-            while (stateA.uncheckedItems.none { it.fields.name == "Bread" }) { stateA = turbineA.awaitItem() }
+            while (stateA.uncheckedItems.none { it.fields.name == "Bread" }) {
+                stateA = turbineA.awaitItem()
+            }
 
             // User A undoes — the Milk add (most recent valid entry) is reversed.
             userA.viewModel.undo()
-            while (stateA.uncheckedItems.any { it.fields.name == "Milk" }) { stateA = turbineA.awaitItem() }
+            while (stateA.uncheckedItems.any { it.fields.name == "Milk" }) {
+                stateA = turbineA.awaitItem()
+            }
             assertFalse(stateA.uncheckedItems.any { it.fields.name == "Milk" })
 
-            // A undoes again — the Eggs add entry was pruned, so this is a no-op.
+            // User A undoes again — the Eggs add entry was pruned, so this is a no-op.
             userA.viewModel.undo()
             assertTrue(stateA.uncheckedItems.any { it.fields.name == "Bread" })
             assertFalse(stateA.undoAvailable)
@@ -332,15 +479,25 @@ class ResilienceIntegrationTest {
             setupSharedList(userA, turbineA, userB, turbineB)
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Ghost", quantity = 1.0, checked = false))
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Ghost",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
 
             var stateB = turbineB.awaitItem()
-            while (stateB.uncheckedItems.none { it.fields.name == "Ghost" }) { stateB = turbineB.awaitItem() }
+            while (stateB.uncheckedItems.none { it.fields.name == "Ghost" }) {
+                stateB = turbineB.awaitItem()
+            }
 
             userB.viewModel.deleteItem(stateB.uncheckedItems.first { it.fields.name == "Ghost" })
 
             var stateA = turbineA.awaitItem()
-            while (stateA.uncheckedItems.any { it.fields.name == "Ghost" }) { stateA = turbineA.awaitItem() }
+            while (stateA.uncheckedItems.any { it.fields.name == "Ghost" }) {
+                stateA = turbineA.awaitItem()
+            }
 
             // A's undo entry for the Ghost add was pruned by B's remote delete; undo is a no-op.
             userA.viewModel.undo()
@@ -364,27 +521,41 @@ class ResilienceIntegrationTest {
             userA.disableNetwork()
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Offline-A", quantity = 1.0, checked = false))
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Offline-A",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
 
             userB.viewModel.openAddDialog("")
-            userB.viewModel.dialogState.value!!.onSave(ItemFields(name = "Online-B", quantity = 1.0, checked = false))
+            userB.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Online-B",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
 
             var stateB = turbineB.awaitItem()
-            while (stateB.uncheckedItems.none { it.fields.name == "Online-B" }) { stateB = turbineB.awaitItem() }
+            while (stateB.uncheckedItems.none { it.fields.name == "Online-B" }) {
+                stateB = turbineB.awaitItem()
+            }
 
             userA.enableNetwork()
             userA.waitForPendingWrites()
 
             var stateA = turbineA.awaitItem()
             while (stateA.uncheckedItems.none { it.fields.name == "Offline-A" } ||
-                   stateA.uncheckedItems.none { it.fields.name == "Online-B" }) {
+                stateA.uncheckedItems.none { it.fields.name == "Online-B" }) {
                 stateA = turbineA.awaitItem()
             }
             assertTrue(stateA.uncheckedItems.any { it.fields.name == "Offline-A" })
             assertTrue(stateA.uncheckedItems.any { it.fields.name == "Online-B" })
 
             while (stateB.uncheckedItems.none { it.fields.name == "Offline-A" } ||
-                   stateB.uncheckedItems.none { it.fields.name == "Online-B" }) {
+                stateB.uncheckedItems.none { it.fields.name == "Online-B" }) {
                 stateB = turbineB.awaitItem()
             }
             assertTrue(stateB.uncheckedItems.any { it.fields.name == "Offline-A" })
@@ -406,9 +577,21 @@ class ResilienceIntegrationTest {
             userA.disableNetwork()
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Secret", quantity = 1.0, checked = false))
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Secret",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Hidden", quantity = 1.0, checked = false))
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Hidden",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
 
             // A is offline — B must not see these items yet.
             assertFalse(userB.viewModel.uiState.value.uncheckedItems.any { it.fields.name == "Secret" })
@@ -419,7 +602,7 @@ class ResilienceIntegrationTest {
 
             var stateB = turbineB.awaitItem()
             while (stateB.uncheckedItems.none { it.fields.name == "Secret" } ||
-                   stateB.uncheckedItems.none { it.fields.name == "Hidden" }) {
+                stateB.uncheckedItems.none { it.fields.name == "Hidden" }) {
                 stateB = turbineB.awaitItem()
             }
             assertTrue(stateB.uncheckedItems.any { it.fields.name == "Secret" })

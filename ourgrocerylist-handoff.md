@@ -127,7 +127,7 @@ lists/{listId}/items/{itemId}
 
 ## List observation strategy
 
-`FirestoreListRepository.observeLists()` runs two parallel Firestore snapshot queries — lists where `owner.uid == user.uid` and lists where `editors.{user.uid}` is present — and merges them client-side. Results are deduplicated and sorted: owned lists first (alphabetically), then editor lists (alphabetically).
+`FirestoreListRepository.observeLists()` runs two parallel Firestore snapshot queries — lists where `owner.uid == user.uid` and lists where `editors.{user.uid}` is present — and merges them client-side. Results are deduplicated and sorted alphabetically (no distinction between owned and editor lists).
 
 **Readiness gate** — both queries fire an initial snapshot on attach. Without a gate, the first listener's empty result would reach the ViewModel before the second listener initializes, falsely triggering "no lists → create default Groceries" list creation. Each listener sets a flag (`ownedReady`/`editorReady`) and `sendCombined` returns early until both are true.
 

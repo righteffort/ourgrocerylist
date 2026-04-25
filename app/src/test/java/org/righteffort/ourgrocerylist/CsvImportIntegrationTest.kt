@@ -60,7 +60,6 @@ class CsvImportIntegrationTest {
 
         // Count expected rows independently: non-blank lines after the header.
         val expectedCount = csvContent.lines().drop(1).count { it.isNotBlank() }
-	println("expectedCount ${expectedCount}")
 
         userA.viewModel.uiState.test(timeout = 15.seconds) {
             userA.viewModel.importListFromCsv("Imported", csvContent)

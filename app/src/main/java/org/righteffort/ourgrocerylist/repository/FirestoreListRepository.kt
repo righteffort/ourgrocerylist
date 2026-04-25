@@ -59,7 +59,7 @@ class FirestoreListRepository(
                 fun sendCombined() {
                     // Wait until both listeners have fired at least once to avoid a spurious
                     // empty emission while the second listener is still initializing.
-                    Timber.v("DEBUG FLR sendCombined ownedReady=$ownedReady editorReady=$editorReady")
+                    Timber.v("DEBUG FLR ${user.email} sendCombined ownedReady=$ownedReady editorReady=$editorReady")
                     if (!ownedReady || !editorReady) return
                     val all = (
                         ownedDocs.mapNotNull { it.toListMetadata(isOwner = true) } +
@@ -67,7 +67,7 @@ class FirestoreListRepository(
                     )
                         .distinctBy { it.id }
                         .sortedWith(compareBy({ !it.isOwner }, { it.name.lowercase() }))
-                    Timber.v("DEBUG FLR sendCombined calling trySend ${all.map { it }}")
+                    Timber.v("DEBUG FLR ${user.email} sendCombined calling trySend ${all.map { it }}")
                     // TODO: is it ok to discard result of trySend?
                     trySend(all)
                 }
@@ -75,13 +75,14 @@ class FirestoreListRepository(
                 val ownedListener = firestore.collection("lists")
                     .whereEqualTo("owner.uid", user.uid)
                     .addSnapshotListener { snapshot, error ->
+                        ownedDocs = snapshot?.documents ?: emptyList()
+                        val ownedMetadatas = ownedDocs.map{it.toListMetadata(true)}
                         if (error != null) {
                             // TODO: ok to eat?
-                            Timber.v("DEBUG FLR FYI so sad ownedListener hit error ${error}")
+                            Timber.v("DEBUG FLR ${user.email} FYI so sad $ownedMetadatas ownedListener hit error $error")
                             close(error); return@addSnapshotListener
                         }
-                        ownedDocs = snapshot?.documents ?: emptyList()
-                        Timber.v("DEBUG FLR ownedListener calling sendCombined size=${ownedDocs.size} isFromCache=${snapshot?.metadata?.isFromCache} hasPendingWrites=${snapshot?.metadata?.hasPendingWrites()} first=${if (ownedDocs.isEmpty()) "none" else ownedDocs.first().data}")
+                        Timber.v("DEBUG FLR ${user.email} $ownedMetadatas calling sendCombined size=${ownedDocs.size} isFromCache=${snapshot?.metadata?.isFromCache} hasPendingWrites=${snapshot?.metadata?.hasPendingWrites()} first=${if (ownedDocs.isEmpty()) "none" else ownedDocs.first().data}")
                         ownedReady = true
                         sendCombined()
                     }
@@ -89,13 +90,14 @@ class FirestoreListRepository(
                 val editorListener = firestore.collection("lists")
                     .whereNotEqualTo("editors.${user.uid}", null)
                     .addSnapshotListener { snapshot, error ->
+                        editorDocs = snapshot?.documents ?: emptyList()
+                        val editorMetadatas = editorDocs.map{it.toListMetadata(false)}
                         if (error != null) {
                             // TODO: ok to eat?
-                            Timber.v("DEBUG FLR FYI so sad editorListener hit error ${error}")
+                            Timber.v("DEBUG FLR ${user.email} FYI so sad editorListener $editorMetadatas hit error $error")
                             close(error); return@addSnapshotListener
                         }
-                        editorDocs = snapshot?.documents ?: emptyList()
-                        Timber.v("DEBUG FLR editorListener sending sendCombined size=${editorDocs.size} isFromCache=${snapshot?.metadata?.isFromCache} hasPendingWrites=${snapshot?.metadata?.hasPendingWrites()}")
+                        Timber.v("DEBUG FLR ${user.email} editorListener sending sendCombined size=$editorMetadatas isFromCache=${snapshot?.metadata?.isFromCache} hasPendingWrites=${snapshot?.metadata?.hasPendingWrites()}")
                         editorReady = true
                         sendCombined()
                     }
@@ -129,14 +131,16 @@ class FirestoreListRepository(
 
     override suspend fun addEditor(listId: String, email: String) {
         Timber.v("adding Editor $email to $listId")
-        // println("addEditor $listId $email calling emailToUid")
+        // Timber.v("addEditor $listId $email calling emailToUid")
         val uid = callEmailToUid(email)
-        // println("addEditor $listId $email called emailToUid")
+        // Timber.v("addEditor $listId $email called emailToUid")
 
         val ref = firestore.document("lists/$listId")
         firestore.runTransaction { transaction ->
             val doc = transaction.get(ref)
             val data = checkNotNull(doc.data) { "List $listId not found" }
+            val name = data["name"] as? String
+            Timber.v("${currentUserFlow.value?.email} adding Editor $email to $listId $name")
             val ownerEmail = (data["owner"] as? Map<*, *>)?.get("email") as? String
                 ?: error("List $listId has malformed owner field")
             if (email.equals(ownerEmail, ignoreCase = true)) {
@@ -148,12 +152,13 @@ class FirestoreListRepository(
                 throw IllegalArgumentException("$email is already an editor of this list")
             }
             transaction.update(ref, "editors.$uid", mapOf("email" to email))
+            Timber.v("FLR ${currentUserFlow.value?.email} added Editor $email to $listId $name")
             null
         }.await()
-        Timber.v("add Editor $email to $listId completed")
     }
 }
 
+// TODO this smells wrong, why does this simply pass back the value of isOwner provided by the caller?
 private fun DocumentSnapshot.toListMetadata(isOwner: Boolean): ListMetadata? {
     val name = data?.get("name") as? String ?: return null
     return ListMetadata(id = id, name = name, isOwner = isOwner)

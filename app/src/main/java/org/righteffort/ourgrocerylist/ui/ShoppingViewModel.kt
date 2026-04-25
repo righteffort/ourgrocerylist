@@ -64,7 +64,11 @@ class ShoppingViewModel(
     private data class ListSelectionState(
         val lists: List<ListMetadata> = emptyList(),
         val currentListId: String? = null,
-    )
+    ) {
+        fun currentListName() =
+            lists.firstOrNull { it.id == currentListId }?.name  // convenience function for logging
+    }
+
     private val _listSelection = MutableStateFlow(ListSelectionState())
 
     // IDs added by addList that have not yet appeared in an observeLists snapshot.
@@ -106,7 +110,8 @@ class ShoppingViewModel(
     val deleteListDialogVisible: StateFlow<Boolean> = _deleteListDialogVisible.asStateFlow()
 
     private val _importListDialogState = MutableStateFlow<ImportListDialogState?>(null)
-    val importListDialogState: StateFlow<ImportListDialogState?> = _importListDialogState.asStateFlow()
+    val importListDialogState: StateFlow<ImportListDialogState?> =
+        _importListDialogState.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -127,7 +132,7 @@ class ShoppingViewModel(
             listRepository.observeLists()
                 .catch { e -> logAndEmitFatalError("Failed to observe lists", e) }
                 .collect { lists ->
-                    Timber.v("DEBUG SVM observeLists lists=${lists.map { it.id }}")
+                    Timber.v("DEBUG SVM ${currentUserFlow.value?.email} observeLists lists=${lists.map { it }}")
                     val newIds = lists.map { it.id }.toSet()
 
                     // Create resources for newly discovered lists and start remote-change listeners.
@@ -150,25 +155,26 @@ class ShoppingViewModel(
                         val user = currentUserFlow.value
                         if (user != null) {
                             try {
-                                Timber.v("DEBUG SVM creating Groceries default list")
+                                Timber.v("DEBUG SVM ${currentUserFlow.value?.email} creating Groceries default list")
                                 listRepository.createList(user, "Groceries")
                             } catch (e: Exception) {
                                 logAndEmitFatalError("Failed to create initial list", e)
                             }
                         }
-                        Timber.v("DEBUG SVM lists empty, updating _listSelection")
+                        Timber.v("DEBUG SVM ${currentUserFlow.value?.email} lists empty, updating _listSelection")
                         _listSelection.update { it.copy(lists = lists) }
                         return@collect
                     }
 
                     // Atomically update lists and currentListId so uiState never emits a state
                     // where currentListName doesn't match a list in lists.
-                    Timber.v("DEBUG SVM time to update _listSelection")
+                    Timber.v("DEBUG SVM ${currentUserFlow.value?.email} time to update _listSelection")
                     _listSelection.update { current ->
-                        Timber.v("DEBUG SVM maybe change selected to current.currentListId=${current.currentListId}; newIds=$newIds _pendingAddListIds=$_pendingAddListIds")
+                        Timber.v("DEBUG SVM ${currentUserFlow.value?.email} maybe change selected to ${current.currentListName()} current.currentListId=${current.currentListId}; newIds=$newIds _pendingAddListIds=$_pendingAddListIds")
                         val newCurrentId =
                             if (current.currentListId == null ||
-                                (current.currentListId !in newIds && current.currentListId !in _pendingAddListIds)) {
+                                (current.currentListId !in newIds && current.currentListId !in _pendingAddListIds)
+                            ) {
                                 // Auto-select when there is no current selection, or when the current
                                 // list is absent from this snapshot AND was not added by a pending
                                 // addList call. With latency compensation, each local write queues its
@@ -180,15 +186,15 @@ class ShoppingViewModel(
                                 // list is confirmed. This is distinct from listResources, which is
                                 // removed during cleanup before this lambda runs.
                                 val selected = lists.firstOrNull { it.isOwner } ?: lists.first()
-                                Timber.v("DEBUG SVM preferred auto-selecting list id=${selected.id} over current.currentListId")
+                                Timber.v("DEBUG SVM ${currentUserFlow.value?.email} preferred auto-selecting list=$selected over current.currentListId")
                                 selected.id
                             } else {
-                                Timber.v("DEBUG SVM went with current.currentListId")
+                                Timber.v("DEBUG SVM ${currentUserFlow.value?.email} went with ${current.currentListName()} current.currentListId")
                                 current.currentListId
                             }
                         ListSelectionState(lists, newCurrentId)
                     }
-                    Timber.v("DEBUG SVM lists non-empty, updated _listSelection currentListId=${_listSelection.value.currentListId} lists=${lists.map { it.id }}")
+                    Timber.v("DEBUG SVM ${currentUserFlow.value?.email} lists non-empty, updated _listSelection ${_listSelection.value.currentListName()} currentListId=${_listSelection.value.currentListId} lists=${lists.map { it }}")
                 }
         }
     }
@@ -198,9 +204,24 @@ class ShoppingViewModel(
         listResources.getOrPut(listId) {
             val repo = repositoryFactory(listId)
             val undoRedoManager = UndoRedoManager(repo)
+
+            // Note FirestoreException from downstream
+            // observeRemotelyModifiedItems should eventually succeed,
+            // at which point this flow will begin.  In general
+            // modifications during the gap would show up as ADDED,
+            // but there won't actually be modifications, since they
+            // can only occur is only possible after the list creation
+            // reaches the server.
             val job = viewModelScope.launch {
                 repo.observeRemotelyModifiedItemIds()
-                    .catch { e -> logAndEmitError("Failed to observe remote changes for $listId", e) }
+                    .catch { e ->
+                        Timber.d("SVM ${currentUserFlow.value?.email} failed to observe remote changes for $listId, can't trust undo/redo!");
+                        logAndEmitError(
+                            "can't trust undo/redo: failed to observe remote changes for $listId",
+                            e
+                        )
+                        // TODO: turn off undo/redo in this case???
+                    }
                     .collect { itemIds -> itemIds.forEach { undoRedoManager.pruneForRemoteWrite(it) } }
             }
             ListResources(repo, undoRedoManager, job)
@@ -213,7 +234,7 @@ class ShoppingViewModel(
         // shared to you). The inner combine re-subscribes to _listSelection for lists so that
         // metadata changes are still reflected without restarting the items subscription.
         _listSelection.map { it.currentListId }.distinctUntilChanged().flatMapLatest { listId ->
-            Timber.v("DEBUG SVM uiState flow listId=$listId")
+            Timber.v("DEBUG SVM ${currentUserFlow.value?.email} uiState flow listId=$listId")
             if (listId == null) {
                 _listSelection.map { ActiveListState(null, it.lists, emptyList(), UndoRedoState()) }
             } else {
@@ -221,14 +242,18 @@ class ShoppingViewModel(
                 combine(
                     resources.repository.observeItems()
                         .catch { e ->
-                            Timber.e(e, "DEBUG SVM observeItems terminated with error for listId=$listId — items observer is now dead")
+                            Timber.e(
+                                e,
+                                "DEBUG SVM ${currentUserFlow.value?.email} observeItems terminated with error for listId=$listId — items observer is now dead"
+                            )
                             logAndEmitFatalError("Failed to observe items", e)
-                            emit(emptyList())
+                            // TODO: this is a bad place to be, probably should not allow the user to proceed! ...
+                            emit(emptyList())  // TODO: ... because we don't know the true state of the list.
                         },
                     resources.undoRedoManager.state,
                     _listSelection,
                 ) { items, undoState, listSelection ->
-                    Timber.v("DEBUG SVM uiState flow i think emitting state that includes listId=$listId")
+                    Timber.v("DEBUG SVM ${currentUserFlow.value?.email} uiState flow i think emitting state that includes listId=$listId")
                     ActiveListState(listId, listSelection.lists, items, undoState)
                 }
             }
@@ -236,9 +261,9 @@ class ShoppingViewModel(
         currentUserFlow,
     ) { activeListState, currentUser ->
         val currentList = activeListState.lists.find { it.id == activeListState.listId }
-        Timber.v("DEBUG SVM building UiState lists=${activeListState.lists.map { it }} currentList=${currentList}")
+        Timber.v("DEBUG SVM ${currentUserFlow.value?.email} building UiState lists=${activeListState.lists.map { it }} currentList=${currentList}")
         val (checked, unchecked) = activeListState.items.partition { it.fields.checked }
-        Timber.v("DEBUG SVM constructing UiState listId=${activeListState.listId} items=${activeListState.items} lists=${activeListState.lists}")
+        Timber.v("DEBUG SVM ${currentUserFlow.value?.email} constructing UiState listId=${activeListState.listId} items=${activeListState.items} lists=${activeListState.lists}")
         UiState(
             uncheckedItems = unchecked.sortedWith(ITEM_COMPARATOR),
             checkedItems = checked.sortedWith(ITEM_COMPARATOR),
@@ -353,25 +378,25 @@ class ShoppingViewModel(
         val user = currentUserFlow.value ?: return
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
-        Timber.v("DEBUG SVM launching but using what dispatcher and scheduler? context=${viewModelScope.coroutineContext}")
-        Timber.v("DEBUG SVM addList main.immediate ${Dispatchers.Main.immediate.hashCode()} ${Dispatchers.Main.immediate}")
+        // Timber.v("DEBUG SVM launching but using what dispatcher and scheduler? context=${viewModelScope.coroutineContext}")
+        // Timber.v("DEBUG SVM addList main.immediate ${Dispatchers.Main.immediate.hashCode()} ${Dispatchers.Main.immediate}")
 
         val svmDispatcher = viewModelScope.coroutineContext[ContinuationInterceptor]
-        Timber.v("svm dispatcher: $svmDispatcher (${"%x".format(System.identityHashCode(svmDispatcher))})")
-        Timber.v("svm dispatcher class: ${svmDispatcher!!::class.java.name}")
+        // Timber.v("svm dispatcher: $svmDispatcher (${"%x".format(System.identityHashCode(svmDispatcher))})")
+        // Timber.v("svm dispatcher class: ${svmDispatcher!!::class.java.name}")
         viewModelScope.launch {
             try {
-                Timber.v("DEBUG SVM in ShoppingViewModel.addList launch i wish we could add")
-                Timber.v("DEBUG SVM addList before createList name=$trimmed")
+                // Timber.v("DEBUG SVM in ShoppingViewModel.addList launch i wish we could add")
+                Timber.v("DEBUG SVM ${currentUserFlow.value?.email} addList before createList name=$trimmed")
                 val id = listRepository.createList(user, trimmed)
-                Timber.v("DEBUG SVM addList after createList id=$id")
-                Timber.v("RACE_DEBUG in ShoppingViewModel.addList call getOrCreateResource listId=${id}")
+                Timber.v("DEBUG SVM ${currentUserFlow.value?.email} addList after createList name=$trimmed id=$id")
+                Timber.v("RACE_DEBUG ${currentUserFlow.value?.email} in ShoppingViewModel.addList call getOrCreateResource name=$trimmed listId=${id}")
                 // Pre-warm resources to start the remote-change listener before navigating.
                 getOrCreateResources(id)
                 _pendingAddListIds.add(id)
-                Timber.v("DEBUG SVM addList completing: updating _currentListId from ${_listSelection.value.currentListId} to $id (name=$trimmed)")
+                Timber.v("DEBUG SVM ${currentUserFlow.value?.email} addList completing: updating _currentListId from ${_listSelection.value.currentListId} to $id (name=$trimmed)")
                 _listSelection.update { it.copy(currentListId = id) }
-                Timber.v("DEBUG SVM created list name=$trimmed id=$id")
+                Timber.v("DEBUG SVM ${currentUserFlow.value?.email} created list name=$trimmed id=$id")
             } catch (e: Exception) {
                 logAndEmitError("Failed to create list", e)
             }
@@ -405,19 +430,39 @@ class ShoppingViewModel(
 
     // --- List dialogs ---
 
-    fun openAddListDialog() { _addListDialogVisible.value = true }
-    fun dismissAddListDialog() { _addListDialogVisible.value = false }
+    fun openAddListDialog() {
+        _addListDialogVisible.value = true
+    }
 
-    fun openRenameListDialog() { _renameListDialogVisible.value = true }
-    fun dismissRenameListDialog() { _renameListDialogVisible.value = false }
+    fun dismissAddListDialog() {
+        _addListDialogVisible.value = false
+    }
 
-    fun openDeleteListDialog() { _deleteListDialogVisible.value = true }
-    fun dismissDeleteListDialog() { _deleteListDialogVisible.value = false }
+    fun openRenameListDialog() {
+        _renameListDialogVisible.value = true
+    }
+
+    fun dismissRenameListDialog() {
+        _renameListDialogVisible.value = false
+    }
+
+    fun openDeleteListDialog() {
+        _deleteListDialogVisible.value = true
+    }
+
+    fun dismissDeleteListDialog() {
+        _deleteListDialogVisible.value = false
+    }
 
     // --- Import list ---
 
-    fun openImportListDialog() { _importListDialogState.value = ImportListDialogState() }
-    fun dismissImportListDialog() { _importListDialogState.value = null }
+    fun openImportListDialog() {
+        _importListDialogState.value = ImportListDialogState()
+    }
+
+    fun dismissImportListDialog() {
+        _importListDialogState.value = null
+    }
 
     fun exportCurrentListToCsv(): String {
         val state = uiState.value
@@ -452,7 +497,14 @@ class ShoppingViewModel(
                 val listId = listRepository.createList(user, uniqueName)
                 val repo = getOrCreateResources(listId).repository
                 for (fields in items) {
-                    repo.apply(Command.AddItem(ShoppingItem(id = repo.newItemId(), fields = fields)))
+                    repo.apply(
+                        Command.AddItem(
+                            ShoppingItem(
+                                id = repo.newItemId(),
+                                fields = fields
+                            )
+                        )
+                    )
                 }
                 _listSelection.update { it.copy(currentListId = listId) }
                 dismissImportListDialog()
@@ -477,8 +529,13 @@ class ShoppingViewModel(
 
     // --- Share list ---
 
-    fun openShareListDialog() { _shareListDialogState.value = ShareListDialogState() }
-    fun dismissShareListDialog() { _shareListDialogState.value = null }
+    fun openShareListDialog() {
+        _shareListDialogState.value = ShareListDialogState()
+    }
+
+    fun dismissShareListDialog() {
+        _shareListDialogState.value = null
+    }
 
     fun shareList(email: String) {
         Timber.v("sharing some list with $email")
@@ -505,11 +562,11 @@ class ShoppingViewModel(
 
     private fun applyCommand(command: Command) {
         val listId = _listSelection.value.currentListId ?: return
-        Timber.v("DEBUG SVM applyCommand $command listId=$listId")
+        Timber.v("DEBUG SVM ${currentUserFlow.value?.email} applyCommand $command list=${_listSelection.value.currentListName()} listId=$listId")
         viewModelScope.launch {
             try {
                 getOrCreateResources(listId).undoRedoManager.execute(command)
-                Timber.v("DEBUG SVM applyCommand completed $command")
+                Timber.v("DEBUG SVM ${currentUserFlow.value?.email} applyCommand completed $command")
             } catch (e: Exception) {
                 logAndEmitError("Command failed: ${command::class.simpleName}", e)
             }
@@ -536,7 +593,7 @@ class ShoppingViewModel(
         }
         // TODO: should push this into Firebase code probably
         if (e is FirebaseFunctionsException && e.details != null) {
-             Timber.e(e, e.details.toString())
+            Timber.e(e, e.details.toString())
         } else {
             Timber.e(e, message)
         }

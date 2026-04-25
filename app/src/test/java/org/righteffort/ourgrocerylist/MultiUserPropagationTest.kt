@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -21,7 +22,11 @@ import org.righteffort.ourgrocerylist.rules.TimberTestRule
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
+import timber.log.Timber
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.debug.DebugProbes
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.onEach
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -31,11 +36,14 @@ class MultiUserPropagationTest {
     @get:Rule
     val timberRule = TimberTestRule()
 
-    private val userA = TestUser(email = "test1@test.invalid", listName = "User A List", appName = "userA")
-    private val userB = TestUser(email = "test2@test.invalid", listName = "User B List", appName = "userB")
+    private val userA =
+        TestUser(email = "test1@test.invalid", listName = "User A List", appName = "userA")
+    private val userB =
+        TestUser(email = "test2@test.invalid", listName = "User B List", appName = "userB")
 
     @Before
     fun setUp() = runTest {
+        DebugProbes.install()
         clearEmulatorData()
         Dispatchers.setMain(UnconfinedTestDispatcher())
         val defaultOptions = FirebaseOptions.Builder()
@@ -49,6 +57,7 @@ class MultiUserPropagationTest {
 
     @After
     fun tearDown() {
+        DebugProbes.uninstall()
         Dispatchers.resetMain()
         userA.app.delete()
         userB.app.delete()
@@ -67,17 +76,26 @@ class MultiUserPropagationTest {
     }
 
     @Test
-    fun `editor sees pre-existing items`() = runTest {
+    fun `editor sees pre-existing items`() = runTest {  // TODO: flaky
         turbineScope {
-            val turbineA = userA.viewModel.uiState.testIn(backgroundScope, timeout = 15.seconds)
-            val turbineB = userB.viewModel.uiState.testIn(backgroundScope, timeout = 15.seconds)
+            val turbineA = userA.viewModel.uiState
+                .onEach { Timber.v("userA uiState emission: $it") }
+                .testIn(backgroundScope, timeout = 10.seconds)
+            val turbineB = userB.viewModel.uiState
+                .onEach { Timber.v("userB uiState emission: $it") }
+                .testIn(backgroundScope, timeout = 10.seconds)
+            launch {
+                delay(2000)
+                DebugProbes.dumpCoroutines(System.err)
+            }
 
             userA.viewModel.addList(userA.listName)
             userB.viewModel.addList(userB.listName)
 
             var stateA = turbineA.awaitItem()
             while (stateA.lists.none { it.name == userA.listName } || stateA.currentListName != userA.listName) {
-                stateA = turbineA.awaitItem()
+                stateA =
+                    turbineA.awaitItem()  // TODO: flaky sometimes times out here. Essentially the same place setupSharedList sometimes hangs
             }
 
             var stateB = turbineB.awaitItem()
@@ -88,19 +106,32 @@ class MultiUserPropagationTest {
             // User A adds 3 items before sharing.
             for (name in listOf("Apples", "Bread", "Milk")) {
                 userA.viewModel.openAddDialog("")
-                userA.viewModel.dialogState.value!!.onSave(ItemFields(name = name, quantity = 1.0, checked = false))
+                userA.viewModel.dialogState.value!!.onSave(
+                    ItemFields(
+                        name = name,
+                        quantity = 1.0,
+                        checked = false
+                    )
+                )
             }
-            while (stateA.uncheckedItems.size < 3) { stateA = turbineA.awaitItem() }
+            while (stateA.uncheckedItems.size < 3) {
+                stateA = turbineA.awaitItem()
+            }
 
             // Now A shares with B.
             val listId = stateA.lists.first { it.isOwner }.id
             userA.viewModel.selectList(listId)
             userA.viewModel.shareList(userB.email)
 
-            while (stateB.lists.none { !it.isOwner }) { stateB = turbineB.awaitItem() }
-            userB.viewModel.selectList(listId)
-            while (stateB.lists.none { it.id == listId } || stateB.uncheckedItems.size < 3) {
+            while (stateB.lists.none { !it.isOwner }) {
                 stateB = turbineB.awaitItem()
+            }
+            userB.viewModel.selectList(listId)
+            Timber.v("userB selected userA's list")
+            Timber.v("stateB=$stateB")
+            while (stateB.lists.none { it.id == listId } || stateB.uncheckedItems.size < 3) {
+                stateB = turbineB.awaitItem()  // TODO: flaky often times out here.
+                Timber.v("stateB=$stateB")
             }
 
             assertEquals(3, stateB.uncheckedItems.size)
@@ -137,15 +168,26 @@ class MultiUserPropagationTest {
     }
 
     @Test
-    fun `A renames item, B sees updated name`() = runTest {
+    fun `A renames item, B sees updated name`() = runTest {  // TODO: flaky
         turbineScope {
             val turbineA = userA.viewModel.uiState.testIn(backgroundScope, timeout = 15.seconds)
             val turbineB = userB.viewModel.uiState.testIn(backgroundScope, timeout = 15.seconds)
 
-            setupSharedList(userA, turbineA, userB, turbineB)
+            setupSharedList(
+                userA,
+                turbineA,
+                userB,
+                turbineB
+            )  // TODO: flaky, sometimes times out here?! Made two attempts to set up observers for each list.
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "OldName", quantity = 1.0, checked = false))
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "OldName",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
 
             var stateB = turbineB.awaitItem()
             while (stateB.uncheckedItems.none { it.fields.name == "OldName" }) {
@@ -176,7 +218,13 @@ class MultiUserPropagationTest {
             setupSharedList(userA, turbineA, userB, turbineB)
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Eggs", quantity = 1.0, checked = false))
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Eggs",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
 
             var stateB = turbineB.awaitItem()
             while (stateB.uncheckedItems.none { it.fields.name == "Eggs" }) {
@@ -206,7 +254,13 @@ class MultiUserPropagationTest {
             setupSharedList(userA, turbineA, userB, turbineB)
 
             userA.viewModel.openAddDialog("")
-            userA.viewModel.dialogState.value!!.onSave(ItemFields(name = "Butter", quantity = 1.0, checked = false))
+            userA.viewModel.dialogState.value!!.onSave(
+                ItemFields(
+                    name = "Butter",
+                    quantity = 1.0,
+                    checked = false
+                )
+            )
 
             var stateA = turbineA.awaitItem()
             while (stateA.uncheckedItems.none { it.fields.name == "Butter" }) {
@@ -273,9 +327,10 @@ class MultiUserPropagationTest {
 
             val listId = setupSharedList(userA, turbineA, userB, turbineB)
 
+            Timber.v("userA state lists=${userA.viewModel.uiState.value.lists}")
+            Timber.v("userB state lists=${userB.viewModel.uiState.value.lists}")
             assertTrue(userA.viewModel.uiState.value.isOwner)
-            assertFalse(userB.viewModel.uiState.value.isOwner)
-            assertEquals(listId, userA.viewModel.uiState.value.lists.first { it.isOwner }.id)
+            assertFalse(userB.viewModel.uiState.value.isOwner)  // Because in setupSharedList B selected user A's list.
             assertEquals(listId, userB.viewModel.uiState.value.lists.first { !it.isOwner }.id)
 
             turbineA.cancelAndIgnoreRemainingEvents()

@@ -20,9 +20,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
 import timber.log.Timber
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.debug.DebugProbes
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -43,6 +41,7 @@ class FirstMultiUserIntegrationTest {
 
     @Before
     fun setUp() = runTest {
+        // DebugProbes.install()
         clearEmulatorData()
         Dispatchers.setMain(UnconfinedTestDispatcher())
         val defaultOptions = FirebaseOptions.Builder()
@@ -58,32 +57,37 @@ class FirstMultiUserIntegrationTest {
 
     @After
     fun tearDown() {
+        // DebugProbes.uninstall()
         Dispatchers.resetMain()
-        // TODO are any of these async/suspend ?
-        Timber.v("DEBUG starting tearDown")
         userA.app.delete()
         userB.app.delete()
         clearEmulatorData()
-        Timber.v("DEBUG done with tearDown")
     }
 
     @Test
     fun `user A adds item and user B sees it`() = runTest {
         turbineScope {
-            val turbineA = userA.viewModel.uiState.testIn(backgroundScope, timeout = 15.seconds)
-            val turbineB = userB.viewModel.uiState.testIn(backgroundScope, timeout = 15.seconds)
+            val turbineA = userA.viewModel.uiState
+                // .onEach { Timber.v("userA uiState emission: $it") }
+                .testIn(backgroundScope, timeout = 15.seconds)
+            val turbineB = userB.viewModel.uiState
+                // .onEach { Timber.v("userB uiState emission: $it") }
+                .testIn(backgroundScope, timeout = 15.seconds)
 
             userA.viewModel.addList(userA.listName)
             userB.viewModel.addList(userB.listName)
-
+            // launch {
+            //     delay(2000)
+            //     DebugProbes.dumpCoroutines(System.err)
+            // }
             var stateA = turbineA.awaitItem()
-            while (stateA.lists.none { it.name == userA.listName }) {
+            while (stateA.lists.none { it.name == userA.listName } || stateA.currentListName != userA.listName) {
                 stateA = turbineA.awaitItem()
             }
             Timber.v("fancy test A got ${userA.listName} lists=${stateA.lists}")
 
             var stateB = turbineB.awaitItem()
-            while (stateB.lists.none { it.name == userB.listName }) {
+            while (stateB.lists.none { it.name == userB.listName } || stateB.currentListName != userB.listName) {
                 stateB = turbineB.awaitItem()
             }
             Timber.v("fancy test B got ${userB.listName} lists=${stateB.lists}")
