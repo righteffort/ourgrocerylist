@@ -1,54 +1,34 @@
 rules_version = '2';
 
-// TODO: tidy up most or all of the debug calls.
-
 service cloud.firestore {
   match /databases/{database}/documents {
     match /lists/{listId} {
-      // function debug(x) { return x; }  // Comment out if we want debug output in dev
-
       // Remove when we want to make public
       function isAllowedUser() {
-        let _ = debug("isAllowedUser " + request.method + " " + string(request.path) + " " + (request.auth == null ? "null" : request.auth.token.email));
-        let result =
+        return
             request.auth != null &&
             (request.auth.token.email in ['tromer@gmail.com',
                                          'sbromer@gmail.com']
                  || request.auth.token.email.matches('.*@test\\.invalid'));
-        return (debug("isAllowedUser ").size() >= 0) && debug(result);
       }
 
       function isOwner() {
-        let _0 = debug("hello isOwner 0!");
-        let _1 = debug(listId);
-        let _2 = debug("hello isOwner 2!");
-        let _3 = debug(get(/databases/$(database)/documents/lists/$(listId)).data);
-        let _4 = debug("hello isOwner 4!");
-        let _5 = debug(resource.data);
-        let _6 = debug("hello isOwner 6!");
-        let result =
-            (debug("isOwner " + request.method + " " + string(request.path) + " " + (request.auth == null ? "null" : request.auth.token.email)).size() >= 0) &&
+        return
             request.auth != null &&
             resource != null &&
-            debug(resource.data.owner.uid) == request.auth.uid;
-        return (debug("isOwner ").size() >= 0) && debug(result);
+            resource.data.owner.uid == request.auth.uid;
       }
 
       function isEditor() {
-        let result =
-            (debug("isEditor " + request.method + " " + string(request.path) + " " + (request.auth == null ? "null" : request.auth.token. email)).size() >= 0) &&
+        return
             request.auth != null &&
             resource != null &&
-            debug(resource.data.editors) != null &&
+            resource.data.editors != null &&
             request.auth.uid in resource.data.editors;
-        return (debug("isEditor ").size() >= 0) && debug(result);
       }
 
       function hasAccess() {
-        let result =
-            (debug("hasAccess " + request.method + " " + string(request.path) + " " + (request.auth == null ? "null" : request.auth.token.email)).size() >= 0) &&
-            (isOwner() || isEditor());
-        return (debug("hasAccess ").size() >= 0) && debug(result);
+        return isOwner() || isEditor();
       }
 
       function hasAccessViaList() {
@@ -56,49 +36,39 @@ service cloud.firestore {
         // resource.data would be the item itself.
         // Guard against get() returning null when the list document hasn't been
         // committed to the server yet; accessing .data on null causes a rules error.
-	let asdf = debug("hasAccessViaList ... fetching data");
-        let listDoc = debug(get(/databases/$(database)/documents/lists/$(listId)));
-        let data = debug(listDoc != null ? listDoc.data : null);
-	// let data = debug(get(/databases/$(database)/documents/lists/$(listId)).data);
-	let asdf2 = debug("hasAccessViaList ... fetched data");
-        let result =
-            (debug("hasAccessViaList " + request.method + " " + string(request.path) + " " + (request.auth == null ? "null" : request.auth.token.email)).size() >= 0) &&
+        let listDoc = get(/databases/$(database)/documents/lists/$(listId));
+        return
             request.auth != null &&
-            data != null &&
-            (debug(request.auth.uid == debug(data.owner.uid))
-                || (debug(data.editors) != null && request.auth.uid in data.editors));
-        let foo = debug("hasAccessViaList result...");
-        let bar = debug(string(result));
-        let food = debug("...hasAccessViaList result");
-        return result;
+            listDoc != null &&
+            (request.auth.uid == listDoc.data.owner.uid
+                || (listDoc.data.editors != null && request.auth.uid in listDoc.data.editors));
       }
 
       // List document itself.
       // resource == null means the document doesn't exist; allow authenticated
       // users to read it so ensureListDocument can check existence before creating.
       allow read:
-          if (debug(request.method + " " + string(request.path)).size() >= 0)
-              && isAllowedUser()
-              && request.auth != null
-              && (resource == null || hasAccess());  // allow when resource == null for list
-      allow update, delete:
-          if (debug(request.method + " " + string(request.path)).size() >= 0)
-              && debug(isAllowedUser() && isOwner());
+          if
+              isAllowedUser() &&
+              request.auth != null &&
+              (resource == null || hasAccess());  // allow when resource == null for list
+      allow update:
+          // Disallow unilateral ownership transfer, even by owner.
+          if isAllowedUser() && isOwner() && request.resource.data.owner.uid == request.auth.uid;
+      allow delete:
+          if isAllowedUser() && isOwner();
       allow create:
-          if (debug(request.method + " " + string(request.path)).size() >= 0)
-              && debug(isAllowedUser() && request.auth != null && request.resource.data.owner.uid == request.auth.uid);
+          if isAllowedUser() && request.auth != null && request.resource.data.owner.uid == request.auth.uid;
 
       match /items/{itemId} {
         allow read, write:
-            if (debug(request.method + " " + string(request.path)).size() >= 0)
-                && debug(isAllowedUser() && debug(hasAccessViaList()));
+            if isAllowedUser() && hasAccessViaList();
       }
 
-      // Notifications subcollection — clients read/delete their own
+      // Notifications subcollection — owners and editors can read and delete.
+      // Relies on app logic to avoid client A reading/deleting client B's notifications.
       match /notifications/{clientId}/pending/{notificationId} {
-        allow read, delete:
-            if (debug("read/delete /notifications/" + clientId + "/pending/" + notificationId).size() >= 0)
-                && debug(isAllowedUser() && hasAccessViaList());
+        allow read, delete: if isAllowedUser() && hasAccessViaList();
         // Only Cloud Function writes notifications
         allow create, update: if false;
       }
