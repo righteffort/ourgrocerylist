@@ -18,19 +18,20 @@ class FakeListRepository(
 
     override suspend fun createList(owner: User, name: String): String {
         val id = UUID.randomUUID().toString()
-        _lists.value = _lists.value + ListMetadata(id = id, name = name, isOwner = true)
+        _lists.value = _lists.value + ListMetadata(id = id, name = name, isOwner = true, ownerUid = owner.uid)
         return id
     }
 
-    override suspend fun renameList(listId: String, name: String) {
-        _lists.value = _lists.value.map { if (it.id == listId) it.copy(name = name) else it }
+    override suspend fun renameList(list: ListMetadata, name: String) {
+        _lists.value = _lists.value.map { if (it.id == list.id) it.copy(name = name) else it }
     }
 
-    override suspend fun deleteList(listId: String) {
-        _lists.value = _lists.value.filter { it.id != listId }
+    override suspend fun deleteList(list: ListMetadata) {
+        _lists.value = _lists.value.filter { it.id != list.id }
     }
 
-    override suspend fun addEditor(listId: String, email: String) {
+    override suspend fun addEditor(list: ListMetadata, email: String) {
         if (addEditorError != null) throw addEditorError
+	// TODO: actually update state
     }
 }

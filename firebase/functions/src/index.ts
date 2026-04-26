@@ -8,9 +8,9 @@ admin.initializeApp();
 setGlobalOptions({ region: "us-west1", maxInstances: 10 }); // TODO: Don't hardcode
 
 export const cleanUpDeletedList = onDocumentDeleted(
-  { document: "lists/{listId}", region: "us-west1" },
+  { document: "users/{ownerId}/lists/{listId}", region: "us-west1" },
   async (event) => {
-    console.log(`cleanUpDeletedList(${event.params.listId})`);
+    console.log(`cleanUpDeletedList(${event.params.ownerId}/${event.params.listId})`);
     await getFirestore().recursiveDelete(event.data!.ref);
   },
 );

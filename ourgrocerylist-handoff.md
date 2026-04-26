@@ -88,16 +88,23 @@ No layer skips. No circular dependencies. No shared mutable state outside the re
 
 Each list item is its own Firestore document. This gives independent write paths per item — two users editing different items simultaneously never interact. This is the foundation for the "independent item updates interleave automatically" requirement.
 
-**Collection structure:** `lists/{listId}/items/{itemId}` — items are a subcollection under the list document. This supports multi-list and per-list security rules without migration when those features are added.
+**Collection structure:**
+```
+users/{ownerUid}/lists/{listId}                     — list document
+users/{ownerUid}/lists/{listId}/items/{itemId}      — item documents
+users/{ownerUid}/lists/{listId}/notifications/{clientId}/pending/{notificationId}
+```
+
+Lists are namespaced under their owner's UID. Ownership is determined by the path — no `get()` needed in security rules for owner auth. The item and notifications subcollections follow the list document.
 
 **Item document fields:** See `conflict-detection-design.md` for full document structure. Core fields: `fields` (map: name, quantity, checked), `fingerprint`, `baseFields`, `baseFingerprint`, `clientId`. 
 
-**Conflict notifications:** (Not implemented) `lists/{listId}/notifications/{clientId}/pending/{notificationId}` — per-client subcollection. Each document contains the human-readable conflict description. The client listens to its own subcollection, surfaces the alert, then deletes the document after the user dismisses it.
+**Conflict notifications:** `users/{ownerUid}/lists/{listId}/notifications/{clientId}/pending/{notificationId}` — per-client subcollection. Each document contains the human-readable conflict description. The client listens to its own subcollection, surfaces the alert, then deletes the document after the user dismisses it.
 
 ### Item document structure
 
 ```
-lists/{listId}/items/{itemId}
+users/{ownerUid}/lists/{listId}/items/{itemId}
 {
   fields: {
     name: string,
@@ -127,7 +134,14 @@ lists/{listId}/items/{itemId}
 
 ## List observation strategy
 
-`FirestoreListRepository.observeLists()` runs two parallel Firestore snapshot queries — lists where `owner.uid == user.uid` and lists where `editors.{user.uid}` is present — and merges them client-side. Results are deduplicated and sorted alphabetically (no distinction between owned and editor lists).
+`FirestoreListRepository.observeLists()` runs two parallel Firestore snapshot queries and merges them client-side:
+
+1. **Owned lists** — `collection("users/$uid/lists")`: all lists the user owns, directly namespaced under their UID.
+2. **Editor lists** — `collectionGroup("lists").whereArrayContains("editorUids", uid)`: all lists across all owners where the user appears in the `editorUids` array. Requires a collectionGroup index on `lists` / `editorUids` / CONTAINS (declared in `firestore.indexes.json`).
+
+Each list document carries both an `editors: Map<uid, {email}>` field (for display) and a top-level `editorUids: List<String>` array (for the collectionGroup index). `addEditor` and `removeEditor` write both fields transactionally.
+
+Results are deduplicated (an owner can't also appear as their own editor, but deduplication is cheap insurance) and sorted alphabetically. No distinction between owned and editor lists in the ViewModel.
 
 **Readiness gate** — both queries fire an initial snapshot on attach. Without a gate, the first listener's empty result would reach the ViewModel before the second listener initializes, falsely triggering "no lists → create default Groceries" list creation. Each listener sets a flag (`ownedReady`/`editorReady`) and `sendCombined` returns early until both are true.
 

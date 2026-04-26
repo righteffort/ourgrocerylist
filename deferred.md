@@ -1,4 +1,8 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
+- make account & data deletion easy for users (not just 'email me') https://support.google.com/googleplay/android-developer/answer/13327111
+- write a privacy policy 
+- automated backup of firestore (encrypt with per user keys and throw away the key on account deletion)
+- allow EU users
 - add one or more tests to @app/src/test/java/org/righteffort/ourgrocerylist/ResilienceIntegrationTest.kt that exercise competing list additions and deletions
 - continue the stashed work in ShoppingViewModel and IntegrationTestFixtures in session4-resilience-torture-tests ... e.g. the string "_pendingAddListIds" or "compensation" in the former,  "internal suspend fun TestUser.disableNetwork" in the latter.
 - spinner/loading instead of mysterious ".." list on startup would be nice
@@ -45,8 +49,9 @@ These aspects have not yet been fully designed and implemented and are deferred 
 - conflict detection and notification
 - email and or in-app notifications with invites to newly shared lists.
   - search for invitee in https://gemini.google.com/app/8aac15be2e66cec4 for some help
-- removing editors; handling new editors who have never signed into
-  the app; displaying current list owner and editors in the app.
+- removing editors. must update editors and editorUids fields transactionally in FirestoreListRepository
+- handling new editors who have never signed into the app
+- displaying current list owner and editors in the app
 - once we have authentication (including association of clientIds with
   user ids), conflict notifications can include the display name of
   the other party: "Ted overwrote your change", "You overwrote

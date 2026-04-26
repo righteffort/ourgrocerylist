@@ -22,6 +22,7 @@ import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.FakeListRepository
 import org.righteffort.ourgrocerylist.repository.FakeShoppingRepository
 private val TEST_USER = User(uid = "test-uid", email = "test@test.com")
+private const val OTHER_UID = "other-uid"
 private const val LIST_ID = "list-1"
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -33,14 +34,14 @@ class ShoppingViewModelTest {
     private lateinit var fakeListRepo: FakeListRepository
 
     private fun makeViewModel(
-        initialLists: List<ListMetadata> = listOf(ListMetadata(LIST_ID, "Groceries", isOwner = true)),
+        initialLists: List<ListMetadata> = listOf(ListMetadata(LIST_ID, "Groceries", isOwner = true, ownerUid = TEST_USER.uid)),
         addEditorError: Exception? = null,
     ): ShoppingViewModel {
         fakeListRepo = FakeListRepository(initialLists, addEditorError)
         return ShoppingViewModel(
             currentUserFlow = MutableStateFlow(TEST_USER),
             listRepository = fakeListRepo,
-            repositoryFactory = { FakeShoppingRepository() },
+            repositoryFactory = { _, _ -> FakeShoppingRepository() },
         ).also { vm ->
             collectScope.launch { vm.uiState.collect {} }
         }
@@ -351,7 +352,7 @@ class ShoppingViewModelTest {
 
     @Test
     fun `uiState lists contains all lists`() {
-        assertEquals(listOf(ListMetadata(LIST_ID, "Groceries", isOwner = true)), viewModel.uiState.value.lists)
+        assertEquals(listOf(ListMetadata(LIST_ID, "Groceries", isOwner = true, ownerUid = TEST_USER.uid)), viewModel.uiState.value.lists)
     }
 
     @Test
@@ -439,7 +440,7 @@ class ShoppingViewModelTest {
     @Test
     fun `non-owner list hides isOwner in uiState`() {
         val vm = makeViewModel(
-            initialLists = listOf(ListMetadata("shared-1", "Their List", isOwner = false)),
+            initialLists = listOf(ListMetadata("shared-1", "Their List", isOwner = false, ownerUid = OTHER_UID)),
         )
         assertFalse(vm.uiState.value.isOwner)
     }
@@ -448,8 +449,8 @@ class ShoppingViewModelTest {
     fun `lists are sorted alphabetically, owned list is auto-selected`() {
         val vm = makeViewModel(
             initialLists = listOf(
-                ListMetadata("b", "Bananas", isOwner = true),
-                ListMetadata("a", "Apples", isOwner = false),
+                ListMetadata("b", "Bananas", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata("a", "Apples", isOwner = false, ownerUid = OTHER_UID),
             ),
         )
         assertEquals(listOf("Apples", "Bananas"), vm.uiState.value.lists.map { it.name })
@@ -538,8 +539,8 @@ class ShoppingViewModelTest {
     fun `importListFromCsv proposes max existing suffix plus one`() {
         val vm = makeViewModel(
             initialLists = listOf(
-                ListMetadata(LIST_ID, "Groceries", isOwner = true),
-                ListMetadata("list-2", "Groceries (2)", isOwner = true),
+                ListMetadata(LIST_ID, "Groceries", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata("list-2", "Groceries (2)", isOwner = true, ownerUid = TEST_USER.uid),
             ),
         )
         vm.openImportListDialog()

@@ -3,12 +3,9 @@ package org.righteffort.ourgrocerylist.repository
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.retryWhen
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.model.ShoppingItem
@@ -16,11 +13,12 @@ import timber.log.Timber
 
 class FirestoreShoppingRepository(
     private val firestore: FirebaseFirestore,
+    private val ownerUid: String,
     private val listId: String,
     private val clientId: String,
 ) : ShoppingRepository {
 
-    private val collection get() = firestore.collection("lists/$listId/items")
+    private val collection get() = firestore.collection("users/$ownerUid/lists/$listId/items")
 
     override fun newItemId(): String = collection.document().id
 
@@ -40,21 +38,6 @@ class FirestoreShoppingRepository(
             Timber.v("DEBUG FSR listId=$listId observeItems awaitClose — listener removed collection=${collection.path}")
             listener.remove()
         }
-    }.retryWhen { cause, attempt ->
-        // PERMISSION_DENIED is transient when a newly created list hasn't been committed
-        // server-side yet but the ownedListener has already fired on the local optimistic
-        // write (hasPendingWrites=true). Retry indefinitely to let the server catch up;
-        // the coroutine is canceled when the list is removed from listResources.
-	// Hopefull the UX is ok if we get here.
-        val transient = cause is FirebaseFirestoreException &&
-            cause.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
-        if (transient) {
-            val delayMs = minOf(250L shl minOf(attempt.toInt(), 5), 8_000L)
-            Timber.v("DEBUG FSR listId=$listId observeItems PERMISSION_DENIED attempt=$attempt retrying in ${delayMs}ms collection=${collection.path}")
-            delay(delayMs)
-            Timber.v("DEBUG FSR listId=$listId observeItems delay elapsed, retrying listener attempt=$attempt collection=${collection.path}")
-            true
-        } else false
     }
 
     // Purpose: detect changes by other clients so that we can prune.
@@ -86,17 +69,6 @@ class FirestoreShoppingRepository(
             Timber.v("DEBUG FSR listId=$listId observeRemotelyModifiedItemIds awaitClose — listener removed collection=${collection.path}")
             listener.remove()
         }
-    }.retryWhen { cause, attempt ->
-        // Same transient PERMISSION_DENIED race as observeItems — see comment there.
-        val transient = cause is FirebaseFirestoreException &&
-            cause.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
-        if (transient) {
-            val delayMs = minOf(250L shl minOf(attempt.toInt(), 5), 8_000L)
-            Timber.v("DEBUG FSR listId=$listId observeRemotelyModifiedItemIds PERMISSION_DENIED attempt=$attempt retrying in ${delayMs}ms collection=${collection.path}")
-            delay(delayMs)
-            Timber.v("DEBUG FSR listId=$listId observeRemotelyModifiedItemIds delay elapsed, retrying listener attempt=$attempt collection=${collection.path}")
-            true
-        } else false
     }
 
     override suspend fun apply(command: Command) {

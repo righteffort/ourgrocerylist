@@ -8,14 +8,16 @@ Native Android shopping list app. Kotlin, Jetpack Compose, MVVM. See `ourgrocery
 
 ```
 app/src/main/java/org/righteffort/ourgrocerylist/
-├── model/           # ShoppingItem (with ItemFields), Command sealed class
-├── repository/      # ShoppingRepository interface + FakeShoppingRepository
+├── model/           # ShoppingItem (with ItemFields), ListMetadata, Command sealed class
+├── repository/      # ShoppingRepository + ListRepository interfaces, Fake* and Firestore* impls
 ├── ui/              # ViewModel, UiState, ItemDialogState, ItemDialog, screens, theme
 │   └── theme/
 └── OurGroceryListApp.kt  # Application class, manual DI
 firebase/
-├── firestore.rules  # Firestore security rules
-└── functions/       # Firebase functions
+├── firestore.rules       # Firestore security rules
+├── firestore.indexes.json
+├── functions/            # Firebase Cloud Functions
+└── rules-tests/          # Firestore rules unit tests (Jest + Firebase Rules Unit Testing)
 
 ```
 
@@ -23,7 +25,7 @@ firebase/
 
 1. **Model** — pure data classes, zero Android dependencies
 2. **Repository** — interface + implementations. Firestore.
-3. **UndoRedoManager** — in-memory undo/redo stacks; DataStore persistence deferred
+3. **UndoRedoManager** — in-memory undo/redo stacks; DataStore persistence deferred (WIP on `persist-undo-redo` branch)
 4. **ViewModel** — translates intents to Commands, sorts/splits items into UiState
 5. **Compose UI** — pure function of UiState, emits callbacks upward
 
@@ -55,10 +57,10 @@ Core functionality implemented: Add, edit, delete, check/uncheck items. Edit dia
 - The Compose UI layer makes no decisions — it renders UiState and emits callbacks
 - The ViewModel has no Compose imports and no Firestore imports
 - The repository interface has no Firestore types
-- Every mutation is a Command (sealed class) — this is the foundation for undo/redo
+- Every item mutation is a Command (sealed class) — this is the foundation for undo/redo. List-level operations (create, rename, delete, share) are not Commands and do not participate in undo/redo.
 - Firestore interactions never need be aware of whether the state they observe and mutate is up-to-date with the server. Mutations are fire-and-forget (no await) except in special cases.
 - All mutations write directly to Firestore through the SDK. Last-writer wins.
-- Undo/redo stacks persisted via `kotlinx.serialization` (JSON) in Preferences DataStore — not Proto DataStore
+- Undo/redo stacks will be persisted via `kotlinx.serialization` (JSON) in Preferences DataStore — not Proto DataStore (when the `persist-undo-redo` branch is complete)
 - On remote write to an item, truncate undo/redo stacks from the first entry referencing that item toward oldest (v0). Recent entries preserved. Field-level pruning deferred.
 
 ## How to work together

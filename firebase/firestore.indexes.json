@@ -1,4 +1,19 @@
 {
   "indexes": [],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "lists",
+      "fieldPath": "editorUids",
+      "indexes": [
+        {
+          "queryScope": "COLLECTION",
+          "order": "ASCENDING"
+        },
+        {
+          "queryScope": "COLLECTION_GROUP",
+          "arrayConfig": "CONTAINS"
+        }
+      ]
+    }
+  ]
 }

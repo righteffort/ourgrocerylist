@@ -28,9 +28,10 @@ class MainActivity : ComponentActivity() {
                 ShoppingViewModel(
                     currentUserFlow = app.currentUser,
                     listRepository = app.listRepository,
-                    repositoryFactory = { listId ->
+                    repositoryFactory = { ownerUid, listId ->
                         FirestoreShoppingRepository(
                             firestore = Firebase.firestore,
+                            ownerUid = ownerUid,
                             listId = listId,
                             clientId = app.clientId,
                         )

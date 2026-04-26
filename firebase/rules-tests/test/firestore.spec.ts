@@ -22,6 +22,7 @@ import {
 } from '@firebase/rules-unit-testing'
 import {
   collection,
+  collectionGroup,
   deleteDoc,
   doc,
   getDoc,
@@ -123,49 +124,46 @@ function make_object_defs(t: TestIds): Record<string, ObjectDef> {
     // list_doc: used for read/delete rows and deny-expected create/update rows.
     // create_data/update_data use ALICE_UID so the payload is structurally valid;
     // the deny outcome for unauthenticated/non_member is driven by auth, not data.
-    // list_query filters to alice's owned lists so that non_member (carol)
-    // gets PERMISSION_DENIED on documents she cannot access.
+    // list_query constrains to list_ab via editorUids so that owner and editor
+    // both get a non-empty, accessible result; non_member gets PERMISSION_DENIED.
     list_doc: {
-      doc_path:    `lists/${t.list_ab}`,
-      coll_path:   'lists',
-      create_path: `lists/${t.new_list}`,
-      create_data: () => ({ owner: { uid: ALICE_UID }, editors: {} }),
+      doc_path:    `users/${ALICE_UID}/lists/${t.list_ab}`,
+      coll_path:   `users/${ALICE_UID}/lists`,
+      create_path: `users/${ALICE_UID}/lists/${t.new_list}`,
+      create_data: () => ({ owner: { uid: ALICE_UID }, editors: {}, editorUids: [] }),
       update_data: () => ({ 'owner.uid': ALICE_UID }),
-      // For list_constrained we constrain the result to exactly
-      // list_ab, which is accessible to both the owner and editor
-      // actors. The app queries differently, so we have a separate test
-      // for that query.
+      // Constrain to list_ab (the only list where BOB_UID is an editor).
+      // Owner and editor can both read the result; non_member cannot.
       list_query:  (db) => query(
-        collection(db, 'lists'),
-        where('owner.uid', '==', ALICE_UID),
-        where(`editors.${BOB_UID}`, '!=', null),
+        collection(db, `users/${ALICE_UID}/lists`),
+        where('editorUids', 'array-contains', BOB_UID),
       ),
     },
 
     // list_doc_self_owner: write data explicitly names the actor as owner.
     list_doc_self_owner: {
-      doc_path:    `lists/${t.list_ab}`,
-      coll_path:   'lists',
-      create_path: `lists/${t.new_list}`,
-      create_data: (uid) => ({ owner: { uid }, editors: {} }),
+      doc_path:    `users/${ALICE_UID}/lists/${t.list_ab}`,
+      coll_path:   `users/${ALICE_UID}/lists`,
+      create_path: `users/${ALICE_UID}/lists/${t.new_list}`,
+      create_data: (uid) => ({ owner: { uid }, editors: {}, editorUids: [] }),
       update_data: (uid) => ({ 'owner.uid': uid }),
     },
 
     // list_doc_other_owner: write data names a foreign uid as owner.
     list_doc_other_owner: {
-      doc_path:    `lists/${t.list_ab}`,
-      coll_path:   'lists',
-      create_path: `lists/${t.new_list}`,
-      create_data: () => ({ owner: { uid: FOREIGN_UID }, editors: {} }),
+      doc_path:    `users/${ALICE_UID}/lists/${t.list_ab}`,
+      coll_path:   `users/${ALICE_UID}/lists`,
+      create_path: `users/${ALICE_UID}/lists/${t.new_list}`,
+      create_data: () => ({ owner: { uid: FOREIGN_UID }, editors: {}, editorUids: [] }),
       update_data: () => ({ 'owner.uid': FOREIGN_UID }),
     },
 
     // ---- item documents ----
 
     item_doc: {
-      doc_path:    `lists/${t.list_ab}/items/${t.item}`,
-      coll_path:   `lists/${t.list_ab}/items`,
-      create_path: `lists/${t.list_ab}/items/${t.new_item}`,
+      doc_path:    `users/${ALICE_UID}/lists/${t.list_ab}/items/${t.item}`,
+      coll_path:   `users/${ALICE_UID}/lists/${t.list_ab}/items`,
+      create_path: `users/${ALICE_UID}/lists/${t.list_ab}/items/${t.new_item}`,
       create_data: () => ({ fields: { name: 'milk', quantity: 1, checked: false } }),
       update_data: () => ({ 'fields.name': 'bread' }),
     },
@@ -173,16 +171,16 @@ function make_object_defs(t: TestIds): Record<string, ObjectDef> {
     // ---- notification documents ----
 
     notification_doc: {
-      doc_path:    `lists/${t.list_ab}/notifications/${t.client}/pending/${t.notif}`,
+      doc_path:    `users/${ALICE_UID}/lists/${t.list_ab}/notifications/${t.client}/pending/${t.notif}`,
       // coll_path is one level up (the clientId collection) so that unconstrained
       // list queries hit a path with no rule and are denied.  list_query scopes
       // down to the specific client's pending subcollection, which is covered by
-      // hasAccessViaList() and should be allowed for owner/editor.
-      coll_path:   `lists/${t.list_ab}/notifications`,
-      create_path: `lists/${t.list_ab}/notifications/${t.client}/pending/${t.new_notif}`,
+      // hasAccess() and should be allowed for owner/editor.
+      coll_path:   `users/${ALICE_UID}/lists/${t.list_ab}/notifications`,
+      create_path: `users/${ALICE_UID}/lists/${t.list_ab}/notifications/${t.client}/pending/${t.new_notif}`,
       create_data: () => ({ message: 'conflict' }),
       update_data: () => ({ message: 'updated' }),
-      list_query:  (db) => collection(db, `lists/${t.list_ab}/notifications/${t.client}/pending`),
+      list_query:  (db) => collection(db, `users/${ALICE_UID}/lists/${t.list_ab}/notifications/${t.client}/pending`),
     },
   }
 }
@@ -264,21 +262,22 @@ function parse_table(table: string): TableRow[] {
 // ---------------------------------------------------------------------------
 
 const LIST_DOC_TABLE = `
- unauthenticated  any    list_doc             deny
- owner            list   list_doc             deny
- owner            list_constrained   list_doc             allow
- owner            get    list_doc             allow
- owner            create list_doc_self_owner  allow
- owner            create list_doc_other_owner deny
- owner            update list_doc_self_owner  allow
- owner            update list_doc_other_owner deny
- owner            delete list_doc             allow
- editor           list   list_doc             deny
- editor           list_constrained   list_doc allow
- editor           get    list_doc             allow
- editor           update list_doc             deny
- editor           delete list_doc             deny
- non_member       any    list_doc             deny
+ unauthenticated  any              list_doc             deny
+ owner            list             list_doc             allow  // path is users/alice/lists — owner-scoped
+ owner            list_constrained list_doc             allow
+ owner            get              list_doc             allow
+ owner            create           list_doc_self_owner  allow
+ owner            create           list_doc_other_owner deny
+ owner            update           list_doc_self_owner  allow
+ owner            update           list_doc_other_owner deny
+ owner            delete           list_doc             allow
+ editor           list             list_doc             deny   // can't list all of alice's lists
+ editor           list_constrained list_doc             allow  // constrained by editorUids
+ editor           get              list_doc             allow
+ editor           create           list_doc             deny
+ editor           update           list_doc             deny
+ editor           delete           list_doc             deny
+ non_member       any              list_doc             deny
 `
 
 const ITEM_DOC_TABLE = `
@@ -291,13 +290,13 @@ const ITEM_DOC_TABLE = `
 const NOTIFICATION_DOC_TABLE = `
  unauthenticated  any     notification_doc  deny
  owner            list    notification_doc  deny
- owner            list_constrained    notification_doc  allow  # TODO: Does it work?
+ owner            list_constrained    notification_doc  allow
  owner            get    notification_doc  allow
  owner            delete  notification_doc  allow
  owner            create  notification_doc  deny
  owner            update  notification_doc  deny
  editor           list    notification_doc  deny
- editor           list_constrained    notification_doc  allow  # TODO: Does it work?
+ editor           list_constrained    notification_doc  allow
  editor           get    notification_doc  allow
  editor           delete  notification_doc  allow
  editor           create  notification_doc  deny
@@ -360,9 +359,9 @@ function generate_tests(table: string): void {
         const op = run_case(actor, action, object_label)
         try {
           await (expected === 'allow' ? assertSucceeds(op) : assertFails(op))
-          process.stderr.write(`passed: ${actor} ${action} ${object_label} -> ${expected}\n`)
+          // process.stderr.write(`passed: ${actor} ${action} ${object_label} -> ${expected}\n`)
         } catch (e) {
-          process.stderr.write(`failed: ${actor} ${action} ${object_label} -> ${expected}: ${e}\n`)
+          // process.stderr.write(`failed: ${actor} ${action} ${object_label} -> ${expected}: ${e}\n`)
           throw e
         }
       })
@@ -394,27 +393,31 @@ beforeEach(async () => {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
     await Promise.all([
-      setDoc(doc(db, 'lists', ids.list_ab), {
-        owner:   { uid: ALICE_UID },
-        editors: { [BOB_UID]: { email: 'bob@test.invalid' } },
+      setDoc(doc(db, 'users', ALICE_UID, 'lists', ids.list_ab), {
+        owner:      { uid: ALICE_UID },
+        editors:    { [BOB_UID]: { email: 'bob@test.invalid' } },
+        editorUids: [BOB_UID],
       }),
-      setDoc(doc(db, 'lists', ids.list_a), {
-        owner:   { uid: ALICE_UID },
-        editors: {},
+      setDoc(doc(db, 'users', ALICE_UID, 'lists', ids.list_a), {
+        owner:      { uid: ALICE_UID },
+        editors:    {},
+        editorUids: [],
       }),
-      setDoc(doc(db, 'lists', ids.list_b), {
-        owner:   { uid: BOB_UID },
-        editors: {},
+      setDoc(doc(db, 'users', BOB_UID, 'lists', ids.list_b), {
+        owner:      { uid: BOB_UID },
+        editors:    {},
+        editorUids: [],
       }),
-      setDoc(doc(db, 'lists', ids.list_c), {
-        owner:   { uid: CAROL_UID },
-        editors: {},
+      setDoc(doc(db, 'users', CAROL_UID, 'lists', ids.list_c), {
+        owner:      { uid: CAROL_UID },
+        editors:    {},
+        editorUids: [],
       }),
-      setDoc(doc(db, 'lists', ids.list_ab, 'items', ids.item), {
+      setDoc(doc(db, 'users', ALICE_UID, 'lists', ids.list_ab, 'items', ids.item), {
         fields: { name: 'milk', quantity: 1, checked: false },
       }),
       setDoc(
-        doc(db, 'lists', ids.list_ab, 'notifications', ids.client, 'pending', ids.notif),
+        doc(db, 'users', ALICE_UID, 'lists', ids.list_ab, 'notifications', ids.client, 'pending', ids.notif),
         { message: 'conflict' },
       ),
     ])
@@ -428,17 +431,17 @@ afterEach(async () => {
     // trigger fires on list deletion it finds empty subcollections and exits
     // without writing anything — eliminating the race with the next beforeEach.
     await Promise.all([
-      deleteDoc(doc(db, 'lists', ids.list_ab, 'items', ids.item)),
-      deleteDoc(doc(db, 'lists', ids.list_ab, 'items', ids.new_item)),
-      deleteDoc(doc(db, 'lists', ids.list_ab, 'notifications', ids.client, 'pending', ids.notif)),
-      deleteDoc(doc(db, 'lists', ids.list_ab, 'notifications', ids.client, 'pending', ids.new_notif)),
+      deleteDoc(doc(db, 'users', ALICE_UID, 'lists', ids.list_ab, 'items', ids.item)),
+      deleteDoc(doc(db, 'users', ALICE_UID, 'lists', ids.list_ab, 'items', ids.new_item)),
+      deleteDoc(doc(db, 'users', ALICE_UID, 'lists', ids.list_ab, 'notifications', ids.client, 'pending', ids.notif)),
+      deleteDoc(doc(db, 'users', ALICE_UID, 'lists', ids.list_ab, 'notifications', ids.client, 'pending', ids.new_notif)),
     ])
     await Promise.all([
-      deleteDoc(doc(db, 'lists', ids.list_ab)),
-      deleteDoc(doc(db, 'lists', ids.list_a)),
-      deleteDoc(doc(db, 'lists', ids.list_b)),
-      deleteDoc(doc(db, 'lists', ids.list_c)),
-      deleteDoc(doc(db, 'lists', ids.new_list)),
+      deleteDoc(doc(db, 'users', ALICE_UID, 'lists', ids.list_ab)),
+      deleteDoc(doc(db, 'users', ALICE_UID, 'lists', ids.list_a)),
+      deleteDoc(doc(db, 'users', BOB_UID,   'lists', ids.list_b)),
+      deleteDoc(doc(db, 'users', CAROL_UID, 'lists', ids.list_c)),
+      deleteDoc(doc(db, 'users', ALICE_UID, 'lists', ids.new_list)),
     ])
   })
 })
@@ -470,19 +473,19 @@ describe('notification documents', () => { generate_tests(NOTIFICATION_DOC_TABLE
 //
 // Validates that the security rules correctly scope list queries to the
 // documents each principal can access. The app runs two queries per user —
-// one filtering on owner.uid and one on the editors map — and merges the
-// results client-side. These tests mirror that pattern.
+// one on the owner-scoped subcollection and one collectionGroup filtered by
+// editorUids — and merges the results client-side. These tests mirror that pattern.
 // ---------------------------------------------------------------------------
 
 describe('list queries', () => {
   function owned_query(uid: string): Query<DocumentData> {
     const db = testEnv.authenticatedContext(uid, { email: `${uid}@test.invalid` }).firestore()
-    return query(collection(db, 'lists'), where('owner.uid', '==', uid))
+    return collection(db, `users/${uid}/lists`)
   }
 
   function editor_query(uid: string): Query<DocumentData> {
     const db = testEnv.authenticatedContext(uid, { email: `${uid}@test.invalid` }).firestore()
-    return query(collection(db, 'lists'), where(`editors.${uid}`, '!=', null))
+    return query(collectionGroup(db, 'lists'), where('editorUids', 'array-contains', uid))
   }
 
   async function sorted_ids(q: Query<DocumentData>): Promise<string[]> {
@@ -494,33 +497,33 @@ describe('list queries', () => {
     expect(await sorted_ids(owned_query(ALICE_UID))).toEqual([ids.list_a, ids.list_ab].sort())
   })
   test('alice editor query returns no lists', async () => {
-    process.stderr.write('alice editor...\n')
+    // process.stderr.write('alice editor...\n')
     expect(await sorted_ids(editor_query(ALICE_UID))).toEqual([])
-    process.stderr.write('...alice editor\n')
+    // process.stderr.write('...alice editor\n')
   })
   test('bob owned query returns list_b', async () => {
-    process.stderr.write('bob owned...\n')
+    // process.stderr.write('bob owned...\n')
     expect(await sorted_ids(owned_query(BOB_UID))).toEqual([ids.list_b])
-    process.stderr.write('...bob owned\n')
+    // process.stderr.write('...bob owned\n')
   })
   test('bob editor query returns list_ab', async () => {
-    process.stderr.write('bob editor...\n')
+    // process.stderr.write('bob editor...\n')
     expect(await sorted_ids(editor_query(BOB_UID))).toEqual([ids.list_ab])
-    process.stderr.write('...bob editor\n')
+    // process.stderr.write('...bob editor\n')
   })
   test('carol owned query returns list_c', async () => {
-    process.stderr.write('carol owned...\n')
+    // process.stderr.write('carol owned...\n')
     expect(await sorted_ids(owned_query(CAROL_UID))).toEqual([ids.list_c])
-    process.stderr.write('...carol owned\n')
+    // process.stderr.write('...carol owned\n')
   })
   test('carol editor query returns no lists', async () => {
-    process.stderr.write('carol edtior...\n')
+    // process.stderr.write('carol editor...\n')
     expect(await sorted_ids(editor_query(CAROL_UID))).toEqual([])
-    process.stderr.write('...carol editor\n')
+    // process.stderr.write('...carol editor\n')
   })
-  test('authenticated user can get a non-existent list', async () => {
+  test('authenticated owner can get a non-existent list', async () => {
     const db = actor_db('owner', testEnv)
-    const snap = await assertSucceeds(getDoc(doc(db, 'lists', ids.new_list)))
+    const snap = await assertSucceeds(getDoc(doc(db, 'users', ALICE_UID, 'lists', ids.new_list)))
     expect(snap.exists()).toBe(false)
   })
 })
