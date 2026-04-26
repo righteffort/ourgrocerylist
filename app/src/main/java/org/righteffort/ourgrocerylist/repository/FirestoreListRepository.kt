@@ -38,7 +38,7 @@ class FirestoreListRepository(
 
 
     // Two parallel Firestore queries: lists owned by the user + lists where user is an editor.
-    // They are merged client-side and sorted: owned first (alphabetically), then editor (alphabetically).
+    // They are merged client-side; sorting is done in ShoppingViewModel.
     // Firestore evaluates security rules per result document, so both queries are safe.
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override fun observeLists(): Flow<List<ListMetadata>> = currentUserFlow
@@ -66,7 +66,6 @@ class FirestoreListRepository(
                         editorDocs.mapNotNull { it.toListMetadata(isOwner = false) }
                     )
                         .distinctBy { it.id }
-                        .sortedWith(compareBy({ !it.isOwner }, { it.name.lowercase() }))
                     Timber.v("DEBUG FLR ${user.email} sendCombined calling trySend ${all.map { it }}")
                     // TODO: is it ok to discard result of trySend?
                     trySend(all)

@@ -306,6 +306,41 @@ class ShoppingViewModelTest {
         assertFalse(viewModel.uiState.value.redoAvailable)
     }
 
+    @Test
+    fun `redo is cleared when new action is taken after undo`() {
+        viewModel.addItem("Bread")
+        viewModel.addItem("Milk")
+        viewModel.undo()
+        assertTrue(viewModel.uiState.value.redoAvailable)
+        viewModel.addItem("Apples")
+        assertFalse(viewModel.uiState.value.redoAvailable)
+        assertEquals(listOf("Apples", "Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+    }
+
+    @Test
+    fun `undoAvailable and redoAvailable reflect state throughout mixed sequence`() {
+        viewModel.addItem("Bread")
+        viewModel.addItem("Milk")
+
+        viewModel.undo()
+        assertTrue(viewModel.uiState.value.undoAvailable)
+        assertTrue(viewModel.uiState.value.redoAvailable)
+
+        viewModel.undo()
+        assertFalse(viewModel.uiState.value.undoAvailable)
+        assertTrue(viewModel.uiState.value.redoAvailable)
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+
+        viewModel.redo()
+        assertTrue(viewModel.uiState.value.undoAvailable)
+        assertTrue(viewModel.uiState.value.redoAvailable)
+
+        viewModel.redo()
+        assertTrue(viewModel.uiState.value.undoAvailable)
+        assertFalse(viewModel.uiState.value.redoAvailable)
+        assertEquals(listOf("Bread", "Milk"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+    }
+
     // --- list operations ---
 
     @Test
@@ -358,6 +393,20 @@ class ShoppingViewModelTest {
     }
 
     @Test
+    fun `undo on one list does not affect items on another list`() {
+        viewModel.addItem("Bread")
+        viewModel.addList("Hardware")
+        val hardwareId = viewModel.uiState.value.lists.first { it.name == "Hardware" }.id
+        viewModel.addItem("Drill")
+        viewModel.selectList(LIST_ID)
+        viewModel.undo()
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+        viewModel.selectList(hardwareId)
+        assertEquals(listOf("Drill"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertTrue(viewModel.uiState.value.undoAvailable)
+    }
+
+    @Test
     fun `renameCurrentList updates list name`() {
         viewModel.renameCurrentList("Weekly Shop")
         assertEquals("Weekly Shop", viewModel.uiState.value.currentListName)
@@ -396,15 +445,18 @@ class ShoppingViewModelTest {
     }
 
     @Test
-    fun `owned list sorts before editor list`() {
+    fun `lists are sorted alphabetically, owned list is auto-selected`() {
         val vm = makeViewModel(
             initialLists = listOf(
-                ListMetadata("a", "Apples", isOwner = false),
                 ListMetadata("b", "Bananas", isOwner = true),
+                ListMetadata("a", "Apples", isOwner = false),
             ),
         )
-        assertEquals(listOf("Bananas", "Apples"), vm.uiState.value.lists.map { it.name })
+        assertEquals(listOf("Apples", "Bananas"), vm.uiState.value.lists.map { it.name })
         assertEquals("Bananas", vm.uiState.value.currentListName)
+
+        vm.addList("Avocados")
+        assertEquals(listOf("Apples", "Avocados", "Bananas"), vm.uiState.value.lists.map { it.name })
     }
 
     // --- list dialog visibility ---
@@ -461,6 +513,18 @@ class ShoppingViewModelTest {
         assertTrue(ds.errorMessage!!.contains("Groceries"))
         // No new list created
         assertEquals(1, viewModel.uiState.value.lists.size)
+    }
+
+    @Test
+    fun `importListFromCsv succeeds on second attempt with proposed name`() {
+        viewModel.openImportListDialog()
+        viewModel.importListFromCsv("Groceries", SIMPLE_CSV)
+        assertEquals("Groceries (1)", viewModel.importListDialogState.value?.proposedName)
+        viewModel.importListFromCsv("Groceries (1)", SIMPLE_CSV)
+        assertEquals("Groceries (1)", viewModel.uiState.value.currentListName)
+        assertEquals(listOf("Apples"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertEquals(listOf("Bread"), viewModel.uiState.value.checkedItems.map { it.fields.name })
+        assertNull(viewModel.importListDialogState.value)
     }
 
     @Test

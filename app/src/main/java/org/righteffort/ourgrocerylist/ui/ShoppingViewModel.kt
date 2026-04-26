@@ -270,7 +270,7 @@ class ShoppingViewModel(
             undoAvailable = activeListState.undoState.undoAvailable,
             redoAvailable = activeListState.undoState.redoAvailable,
             currentListName = currentList?.name ?: "",
-            lists = activeListState.lists,
+            lists = activeListState.lists.sortedBy { it.name.lowercase() },
             isOwner = currentList?.isOwner ?: false,
             currentUserEmail = currentUser?.email ?: "",
         )
