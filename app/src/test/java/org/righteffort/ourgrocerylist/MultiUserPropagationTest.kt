@@ -9,7 +9,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -24,9 +23,10 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
 import timber.log.Timber
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.debug.DebugProbes
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.onEach
+
+//import kotlinx.coroutines.debug.DebugProbes
+//import kotlinx.coroutines.delay
+//import kotlinx.coroutines.flow.onEach
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -43,7 +43,7 @@ class MultiUserPropagationTest {
 
     @Before
     fun setUp() = runTest {
-        DebugProbes.install()
+        // DebugProbes.install()
         clearEmulatorData()
         Dispatchers.setMain(UnconfinedTestDispatcher())
         val defaultOptions = FirebaseOptions.Builder()
@@ -57,7 +57,7 @@ class MultiUserPropagationTest {
 
     @After
     fun tearDown() {
-        DebugProbes.uninstall()
+        //DebugProbes.uninstall()
         Dispatchers.resetMain()
         userA.app.delete()
         userB.app.delete()
@@ -79,15 +79,15 @@ class MultiUserPropagationTest {
     fun `editor sees pre-existing items`() = runTest {  // TODO: flaky
         turbineScope {
             val turbineA = userA.viewModel.uiState
-                .onEach { Timber.v("userA uiState emission: $it") }
+                //.onEach { Timber.v("userA uiState emission: $it") }
                 .testIn(backgroundScope, timeout = 10.seconds)
             val turbineB = userB.viewModel.uiState
-                .onEach { Timber.v("userB uiState emission: $it") }
+                //.onEach { Timber.v("userB uiState emission: $it") }
                 .testIn(backgroundScope, timeout = 10.seconds)
-            launch {
-                delay(2000)
-                DebugProbes.dumpCoroutines(System.err)
-            }
+//            launch {
+//                delay(5000)
+//                DebugProbes.dumpCoroutines(System.err)
+//            }
 
             userA.viewModel.addList(userA.listName)
             userB.viewModel.addList(userB.listName)
@@ -119,7 +119,7 @@ class MultiUserPropagationTest {
             }
 
             // Now A shares with B.
-            val listId = stateA.lists.first { it.isOwner }.id
+            val listId = stateA.lists.first { it.name == stateA.currentListName }.id
             userA.viewModel.selectList(listId)
             userA.viewModel.shareList(userB.email)
 
