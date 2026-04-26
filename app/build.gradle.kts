@@ -45,14 +45,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Apply the release config if available; otherwise, use the debug key
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                throw org.gradle.api.GradleException(
-                    "Missing keystore.properties for release signing"
-                )
-            }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
