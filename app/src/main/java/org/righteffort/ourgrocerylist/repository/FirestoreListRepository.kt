@@ -1,7 +1,10 @@
 package org.righteffort.ourgrocerylist.repository
 
+import com.google.firebase.Firebase
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -9,11 +12,9 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.tasks.await
+import org.righteffort.ourgrocerylist.appFunctions
 import org.righteffort.ourgrocerylist.model.ListMetadata
 import org.righteffort.ourgrocerylist.model.User
-import com.google.firebase.Firebase
-import com.google.firebase.functions.FirebaseFunctions
-import org.righteffort.ourgrocerylist.appFunctions
 import timber.log.Timber
 
 class FirestoreListRepository(
@@ -35,7 +36,6 @@ class FirestoreListRepository(
                 .data as String
         },
     )
-
 
     // Two parallel Firestore queries: lists owned by the user + lists where user is an editor.
     // They are merged client-side; sorting is done in ShoppingViewModel.
@@ -71,32 +71,29 @@ class FirestoreListRepository(
                     trySend(all)
                 }
 
-                val ownedListener = firestore.collection("lists")
-                    .whereEqualTo("owner.uid", user.uid)
+                val ownedListener = firestore.collection("users/${user.uid}/lists")
                     .addSnapshotListener { snapshot, error ->
                         ownedDocs = snapshot?.documents ?: emptyList()
-                        val ownedMetadatas = ownedDocs.map{it.toListMetadata(true)}
                         if (error != null) {
                             // TODO: ok to eat?
-                            Timber.v("DEBUG FLR ${user.email} FYI so sad $ownedMetadatas ownedListener hit error $error")
+                            Timber.v("DEBUG FLR ${user.email} FYI so sad ownedListener hit error $error")
                             close(error); return@addSnapshotListener
                         }
-                        Timber.v("DEBUG FLR ${user.email} $ownedMetadatas calling sendCombined size=${ownedDocs.size} isFromCache=${snapshot?.metadata?.isFromCache} hasPendingWrites=${snapshot?.metadata?.hasPendingWrites()} first=${if (ownedDocs.isEmpty()) "none" else ownedDocs.first().data}")
+                        Timber.v("DEBUG FLR ${user.email} ownedListener size=${ownedDocs.size} isFromCache=${snapshot?.metadata?.isFromCache} hasPendingWrites=${snapshot?.metadata?.hasPendingWrites()} first=${if (ownedDocs.isEmpty()) "none" else ownedDocs.first().data}")
                         ownedReady = true
                         sendCombined()
                     }
 
-                val editorListener = firestore.collection("lists")
-                    .whereNotEqualTo("editors.${user.uid}", null)
+                val editorListener = firestore.collectionGroup("lists")
+                    .whereArrayContains("editorUids", user.uid)
                     .addSnapshotListener { snapshot, error ->
                         editorDocs = snapshot?.documents ?: emptyList()
-                        val editorMetadatas = editorDocs.map{it.toListMetadata(false)}
                         if (error != null) {
                             // TODO: ok to eat?
-                            Timber.v("DEBUG FLR ${user.email} FYI so sad editorListener $editorMetadatas hit error $error")
+                            Timber.v("DEBUG FLR ${user.email} FYI so sad editorListener hit error $error")
                             close(error); return@addSnapshotListener
                         }
-                        Timber.v("DEBUG FLR ${user.email} editorListener sending sendCombined size=$editorMetadatas isFromCache=${snapshot?.metadata?.isFromCache} hasPendingWrites=${snapshot?.metadata?.hasPendingWrites()}")
+                        Timber.v("DEBUG FLR ${user.email} editorListener size=${editorDocs.size} isFromCache=${snapshot?.metadata?.isFromCache} hasPendingWrites=${snapshot?.metadata?.hasPendingWrites()}")
                         editorReady = true
                         sendCombined()
                     }
@@ -109,56 +106,61 @@ class FirestoreListRepository(
         }
 
     override suspend fun createList(owner: User, name: String): String {
-        val ref = firestore.collection("lists").document()
+        val ref = firestore.collection("users/${owner.uid}/lists").document()
         ref.set(
             mapOf(
                 "name" to name,
                 "owner" to mapOf("uid" to owner.uid, "email" to owner.email),
                 "editors" to emptyMap<String, Any>(),
+                "editorUids" to emptyList<String>(),
             )
         )
         return ref.id
     }
 
-    override suspend fun renameList(listId: String, name: String) {
-        firestore.document("lists/$listId").update("name", name)
+    override suspend fun renameList(list: ListMetadata, name: String) {
+        firestore.document("users/${list.ownerUid}/lists/${list.id}").update("name", name)
     }
 
-    override suspend fun deleteList(listId: String) {
-        firestore.document("lists/$listId").delete()
+    override suspend fun deleteList(list: ListMetadata) {
+        firestore.document("users/${list.ownerUid}/lists/${list.id}").delete()
     }
 
-    override suspend fun addEditor(listId: String, email: String) {
-        Timber.v("adding Editor $email to $listId")
-        // Timber.v("addEditor $listId $email calling emailToUid")
+    override suspend fun addEditor(list: ListMetadata, email: String) {
+        Timber.v("adding Editor $email to ${list.id}")
         val uid = callEmailToUid(email)
-        // Timber.v("addEditor $listId $email called emailToUid")
 
-        val ref = firestore.document("lists/$listId")
+        val ref = firestore.document("users/${list.ownerUid}/lists/${list.id}")
         firestore.runTransaction { transaction ->
             val doc = transaction.get(ref)
-            val data = checkNotNull(doc.data) { "List $listId not found" }
+            val data = checkNotNull(doc.data) { "List ${list.id} not found" }
             val name = data["name"] as? String
-            Timber.v("${currentUserFlow.value?.email} adding Editor $email to $listId $name")
+            Timber.v("${currentUserFlow.value?.email} adding Editor $email to ${list.id} $name")
             val ownerEmail = (data["owner"] as? Map<*, *>)?.get("email") as? String
-                ?: error("List $listId has malformed owner field")
+                ?: error("List ${list.id} has malformed owner field")
             if (email.equals(ownerEmail, ignoreCase = true)) {
                 throw IllegalArgumentException("The list owner cannot be added as an editor")
             }
             val editors = data["editors"] as? Map<*, *>
-                ?: error("List $listId has malformed editors field")
+                ?: error("List ${list.id} has malformed editors field")
             if (editors.containsKey(uid)) {
                 throw IllegalArgumentException("$email is already an editor of this list")
             }
-            transaction.update(ref, "editors.$uid", mapOf("email" to email))
-            Timber.v("FLR ${currentUserFlow.value?.email} added Editor $email to $listId $name")
+            // Update both the editors display map and the editorUids array used for
+            // collectionGroup queries (which require a static, non-dynamic field path).
+            transaction.update(ref, "editors.$uid", mapOf("email" to email),
+                "editorUids", FieldValue.arrayUnion(uid))
+            Timber.v("FLR ${currentUserFlow.value?.email} added Editor $email to ${list.id} $name")
             null
         }.await()
     }
 }
 
-// TODO this smells wrong, why does this simply pass back the value of isOwner provided by the caller?
+// ownerUid is derived from the document path: users/{ownerUid}/lists/{listId}.
+// isOwner is passed by the caller, who knows which query produced this snapshot.
 private fun DocumentSnapshot.toListMetadata(isOwner: Boolean): ListMetadata? {
     val name = data?.get("name") as? String ?: return null
-    return ListMetadata(id = id, name = name, isOwner = isOwner)
+    val ownerUid = reference.parent.parent?.id
+        ?: error("List document $id has unexpected path structure: ${reference.path}")
+    return ListMetadata(id = id, name = name, isOwner = isOwner, ownerUid = ownerUid)
 }

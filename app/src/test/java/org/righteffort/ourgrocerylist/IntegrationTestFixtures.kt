@@ -81,9 +81,10 @@ internal suspend fun setupUser(testUser: TestUser, options: FirebaseOptions) {
     testUser.viewModel = ShoppingViewModel(
         currentUserFlow = userFlow,
         listRepository = FirestoreListRepository(firestore, userFlow, functions),
-        repositoryFactory = { listId ->
+        repositoryFactory = { ownerUid, listId ->
             FirestoreShoppingRepository(
                 firestore,
+                ownerUid,
                 listId,
                 clientId = UUID.randomUUID().toString(),
             )

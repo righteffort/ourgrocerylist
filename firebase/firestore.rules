@@ -2,63 +2,75 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /lists/{listId} {
-      // Remove when we want to make public
-      function isAllowedUser() {
-        return
-            request.auth != null &&
-            (request.auth.token.email in ['tromer@gmail.com',
-                                         'sbromer@gmail.com']
-                 || request.auth.token.email.matches('.*@test\\.invalid'));
-      }
+    // Remove when we want to make public
+    function isAllowedUser() {
+      return
+          request.auth != null &&
+          (request.auth.token.email in ['tromer@gmail.com',
+                                       'sbromer@gmail.com']
+               || request.auth.token.email.matches('.*@test\\.invalid'));
+    }
 
-      function isOwner() {
-        return
-            request.auth != null &&
-            resource != null &&
-            resource.data.owner.uid == request.auth.uid;
-      }
+    // CollectionGroup read for editor list discovery.
+    // The per-path /users/{ownerId}/lists/{listId} rules below cover get and
+    // owner-scoped list queries; this rule covers collectionGroup queries
+    // (collectionGroup("lists").whereArrayContains("editorUids", uid)).
+    // The query filter `where('editorUids', 'array-contains', uid)` and this
+    // rule's `request.auth.uid in resource.data.editorUids` check are
+    // compatible, so the emulator accepts the query.
+    match /{path=**}/lists/{listId} {
+      allow read: if isAllowedUser()
+                  && resource != null
+                  && resource.data.editorUids != null
+                  && request.auth.uid in resource.data.editorUids;
+    }
 
+    match /users/{ownerId}/lists/{listId} {
+      // For list document rules: resource IS the list document, so read editorUids
+      // directly rather than calling get(), which would be self-referential during
+      // list/collectionGroup query evaluation and causes a rules error.
       function isEditor() {
         return
-            request.auth != null &&
             resource != null &&
-            resource.data.editors != null &&
-            request.auth.uid in resource.data.editors;
+            resource.data.editorUids != null &&
+            request.auth.uid in resource.data.editorUids;
       }
 
       function hasAccess() {
-        return isOwner() || isEditor();
+        return request.auth.uid == ownerId || isEditor();
       }
 
+      // For subcollection rules: resource is the item/notification, not the list
+      // document. get() is required to read the list ACLs.
+      // Guard against get() returning null when the list document hasn't been
+      // committed to the server yet; accessing .data on null causes a rules error.
       function hasAccessViaList() {
-        // The get call is required to get the ACLs on the list --
-        // resource.data would be the item itself.
-        // Guard against get() returning null when the list document hasn't been
-        // committed to the server yet; accessing .data on null causes a rules error.
-        let listDoc = get(/databases/$(database)/documents/lists/$(listId));
+        let listDoc = get(/databases/$(database)/documents/users/$(ownerId)/lists/$(listId));
         return
-            request.auth != null &&
-            listDoc != null &&
-            (request.auth.uid == listDoc.data.owner.uid
-                || (listDoc.data.editors != null && request.auth.uid in listDoc.data.editors));
+            request.auth.uid == ownerId ||
+            (listDoc != null &&
+             listDoc.data.editorUids != null &&
+             request.auth.uid in listDoc.data.editorUids);
       }
 
       // List document itself.
-      // resource == null means the document doesn't exist; allow authenticated
-      // users to read it so ensureListDocument can check existence before creating.
+      // resource == null means the document doesn't exist; allow the owner to read
+      // it so the app can check existence before creating.
       allow read:
-          if
-              isAllowedUser() &&
-              request.auth != null &&
-              (resource == null || hasAccess());  // allow when resource == null for list
+          if isAllowedUser() &&
+             ((resource == null && request.auth.uid == ownerId) || hasAccess());
+      allow create:
+          // Disallow creating a list whose owner.uid doesn't match the path owner.
+          if isAllowedUser() &&
+             request.auth.uid == ownerId &&
+             request.resource.data.owner.uid == request.auth.uid;
       allow update:
           // Disallow unilateral ownership transfer, even by owner.
-          if isAllowedUser() && isOwner() && request.resource.data.owner.uid == request.auth.uid;
+          if isAllowedUser() &&
+             request.auth.uid == ownerId &&
+             request.resource.data.owner.uid == request.auth.uid;
       allow delete:
-          if isAllowedUser() && isOwner();
-      allow create:
-          if isAllowedUser() && request.auth != null && request.resource.data.owner.uid == request.auth.uid;
+          if isAllowedUser() && request.auth.uid == ownerId;
 
       match /items/{itemId} {
         allow read, write:
