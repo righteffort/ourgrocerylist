@@ -87,6 +87,7 @@ dependencies {
     implementation(libs.timber)
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.bundles.junit.jupiter)
+    debugImplementation(libs.androidx.compose.ui.tooling)
     testRuntimeOnly(libs.junit.platform.launcher)
     testRuntimeOnly(libs.junit.vintage.engine)
     testImplementation(libs.kotlinx.coroutines.test)

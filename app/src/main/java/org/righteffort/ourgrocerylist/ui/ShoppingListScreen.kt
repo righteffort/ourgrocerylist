@@ -1,5 +1,6 @@
 package org.righteffort.ourgrocerylist.ui
 
+import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -55,14 +56,13 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import android.provider.OpenableColumns
-import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.righteffort.ourgrocerylist.model.ListMetadata
 import org.righteffort.ourgrocerylist.model.ShoppingItem
 import org.righteffort.ourgrocerylist.util.formatQuantityNumber
+import java.io.IOException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -359,7 +359,7 @@ private fun AddItemField(
 }
 
 @Composable
-private fun ItemRow(
+internal fun ItemRow(
     item: ShoppingItem,
     isAlternate: Boolean,
     onCheckedChange: () -> Unit,
@@ -376,7 +376,7 @@ private fun ItemRow(
             .fillMaxWidth()
             .background(backgroundColor)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 6.dp, vertical = 0.dp),  // TODO: needs review
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(
