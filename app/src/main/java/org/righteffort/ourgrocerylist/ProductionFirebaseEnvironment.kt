@@ -19,10 +19,13 @@ import kotlinx.coroutines.tasks.await
 
 class ProductionFirebaseEnvironment : FirebaseEnvironment {
 
-    override suspend fun signIn(activity: ComponentActivity) {
+    override fun configureFirebase() {
         Firebase.firestore.firestoreSettings = firestoreSettings {
             setLocalCacheSettings(persistentCacheSettings {})
         }
+    }
+
+    override suspend fun signIn(activity: ComponentActivity) {
         val currentUser = Firebase.auth.currentUser
         if (currentUser == null) {
             signInWithGoogle(activity)

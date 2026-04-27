@@ -6,9 +6,13 @@ service cloud.firestore {
     function isAllowedUser() {
       return
           request.auth != null &&
-          (request.auth.token.email in ['tromer@gmail.com',
-                                       'sbromer@gmail.com']
-               || request.auth.token.email.matches('.*@test\\.invalid'));
+          (request.auth.token.email in [
+              'tromer@gmail.com',
+              'sbromer@gmail.com',
+              'theromer9@gmail.com',
+              'thr.notes@gmail.com'
+              ]
+              || request.auth.token.email.matches('.*@test\\.invalid'));
     }
 
     // CollectionGroup read for editor list discovery.

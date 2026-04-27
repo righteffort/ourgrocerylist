@@ -1,10 +1,7 @@
 package org.righteffort.ourgrocerylist.client
 
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import kotlinx.coroutines.flow.first
+import android.content.Context
+import java.io.File
 
 enum class FirebaseEnvironmentChoice {
     PRODUCTION,
@@ -12,15 +9,19 @@ enum class FirebaseEnvironmentChoice {
     EMULATOR_AVD,          // 10.0.2.2  — Android Virtual Device
 }
 
-private val ENV_CHOICE_KEY = stringPreferencesKey("firebase_env_choice")
+// Stored in noBackupFilesDir so it is not included in Auto Backup and survives
+// neither across device restores nor reinstalls — intentional for a debug-only
+// routing preference.
+class EnvironmentChoiceRepository(private val file: File) {
 
-class EnvironmentChoiceRepository(private val dataStore: DataStore<Preferences>) {
-    suspend fun get(): FirebaseEnvironmentChoice? {
-        val raw = dataStore.data.first()[ENV_CHOICE_KEY] ?: return null
-        return FirebaseEnvironmentChoice.valueOf(raw)
-    }
+    constructor(context: Context) : this(File(context.noBackupFilesDir, "firebase_env_choice"))
 
-    suspend fun save(choice: FirebaseEnvironmentChoice) {
-        dataStore.edit { it[ENV_CHOICE_KEY] = choice.name }
-    }
+    fun get(): FirebaseEnvironmentChoice? =
+        file.takeIf { it.exists() }
+            ?.readText()
+            ?.let { FirebaseEnvironmentChoice.valueOf(it) }
+
+    fun save(choice: FirebaseEnvironmentChoice) = file.writeText(choice.name)
+
+    fun clear() { file.delete() }
 }

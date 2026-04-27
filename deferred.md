@@ -1,4 +1,7 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
+- maybe give a nicer way to recover from "can't connect to emulator" than deleting app data or starting the emulator and/or running adb reverse
+- delete list trigger is broken after refactor.
+- add a delete user trigger.
 - probably an integration test for undo/redo stack pruning
 - make account & data deletion easy for users (not just 'email me') https://support.google.com/googleplay/android-developer/answer/13327111
 - write a privacy policy 

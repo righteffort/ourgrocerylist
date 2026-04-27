@@ -1,6 +1,8 @@
 package org.righteffort.ourgrocerylist.ui
 
+import android.content.Intent
 import android.os.Bundle
+import android.os.Process
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -10,7 +12,6 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import org.righteffort.ourgrocerylist.BuildConfig
 import org.righteffort.ourgrocerylist.DebugFirebaseEnvironment
@@ -85,11 +86,11 @@ class MainActivity : ComponentActivity() {
             ?: throw IllegalStateException("Authenticated user has no email address")
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     private fun restartApp() {
-        (application as OurGroceryListApp).internalInitErrors.resetReplayCache()
-        viewModelStore.clear()
-        recreate()
+        val intent = packageManager.getLaunchIntentForPackage(packageName)!!
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
+        Process.killProcess(Process.myPid())
     }
 
     private fun signOut() {

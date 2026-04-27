@@ -51,10 +51,14 @@ class OurGroceryListApp : Application() {
         }
         super.onCreate()
         firebaseEnvironment = if (BuildConfig.DEBUG) {
-            DebugFirebaseEnvironment(dataStore)
+            DebugFirebaseEnvironment(this, dataStore)
         } else {
             ProductionFirebaseEnvironment()
         }
+        // Must run before addIdTokenListener: if a user is already cached, the listener fires
+        // immediately and observeLists() will touch Firestore before signIn() gets a chance to
+        // configure it, causing "FirebaseFirestore has already been started" on the next line.
+        firebaseEnvironment.configureFirebase()
         Firebase.auth.addIdTokenListener { firebaseAuth: FirebaseAuth ->
             val fbUser = firebaseAuth.currentUser
             val newUser = if (fbUser?.email != null) {
