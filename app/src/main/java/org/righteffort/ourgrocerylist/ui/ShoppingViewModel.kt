@@ -145,14 +145,11 @@ class ShoppingViewModel(
                         }
                     }
 
-                    // Cancel and remove resources for lists no longer accessible.
-                    val removedIds = listResources.keys.toSet() - newIds
-                    for (id in removedIds) {
-                        listResources[id]?.observationJob?.cancel()
-                        listResources.remove(id)
-                    }
-
                     // If no lists exist (new user or all lists deleted), recreate the default.
+                    // This check must come before the removedIds cleanup below: an empty snapshot
+                    // can arrive while addList has already called getOrCreateResources but before
+                    // the new list document is visible in Firestore. Cleaning up on an empty
+                    // snapshot would destroy those just-created resources.
                     if (lists.isEmpty()) {
                         val user = currentUserFlow.value
                         if (user != null) {
@@ -166,6 +163,15 @@ class ShoppingViewModel(
                         Timber.v("DEBUG SVM ${currentUserFlow.value?.email} lists empty, updating _listSelection")
                         _listSelection.update { it.copy(lists = lists) }
                         return@collect
+                    }
+
+                    // Cancel and remove resources for lists no longer accessible.
+                    // _pendingAddListIds are excluded: a non-empty snapshot may arrive before a
+                    // pending addList write is confirmed, and we must not destroy those resources.
+                    val removedIds = listResources.keys.toSet() - newIds - _pendingAddListIds
+                    for (id in removedIds) {
+                        listResources[id]?.observationJob?.cancel()
+                        listResources.remove(id)
                     }
 
                     // Atomically update lists and currentListId so uiState never emits a state
@@ -185,8 +191,8 @@ class ShoppingViewModel(
                                 // call will not yet include the list created by a later one.
                                 // _pendingAddListIds holds IDs written by addList that haven't yet
                                 // appeared in any snapshot; it is cleared entry-by-entry above as each
-                                // list is confirmed. This is distinct from listResources, which is
-                                // removed during cleanup before this lambda runs.
+                                // list is confirmed. It is also excluded from the removedIds cleanup
+                                // above so those resources are not destroyed before the list appears.
                                 val selected = lists.firstOrNull { it.isOwner } ?: lists.first()
                                 Timber.v("DEBUG SVM ${currentUserFlow.value?.email} preferred auto-selecting list=$selected over current.currentListId")
                                 selected.id
