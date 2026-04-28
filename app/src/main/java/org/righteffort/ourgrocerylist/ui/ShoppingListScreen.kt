@@ -255,7 +255,7 @@ fun ShoppingListScreen(
             )
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                itemsIndexed(state.uncheckedItems, key = { _, item -> item.id }) { index, item ->
+                itemsIndexed(state.uncheckedItems, key = { _, item -> "u_${item.id}" }) { index, item ->
                     ItemRow(
                         item = item,
                         isAlternate = index % 2 == 1,
@@ -276,7 +276,7 @@ fun ShoppingListScreen(
                     }
                 }
 
-                itemsIndexed(state.checkedItems, key = { _, item -> item.id }) { index, item ->
+                itemsIndexed(state.checkedItems, key = { _, item -> "c_${item.id}" }) { index, item ->
                     ItemRow(
                         item = item,
                         isAlternate = index % 2 == 1,
