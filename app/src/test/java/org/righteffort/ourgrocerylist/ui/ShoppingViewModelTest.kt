@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.righteffort.ourgrocerylist.client.FakeListOrderRepository
 import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.model.ListMetadata
 import org.righteffort.ourgrocerylist.model.User
@@ -32,16 +33,25 @@ class ShoppingViewModelTest {
     private lateinit var viewModel: ShoppingViewModel
     private lateinit var collectScope: CoroutineScope
     private lateinit var fakeListRepo: FakeListRepository
+    private lateinit var fakeListOrderRepo: FakeListOrderRepository
+
+    // Monotonically increasing fake clock so timestamp comparisons are deterministic.
+    private var fakeTime = 1000L
+    private val fakeClock = { fakeTime++ }
 
     private fun makeViewModel(
         initialLists: List<ListMetadata> = listOf(ListMetadata(LIST_ID, "Groceries", isOwner = true, ownerUid = TEST_USER.uid)),
         addEditorError: Exception? = null,
+        preloadedListOrder: Map<String, Long> = emptyMap(),
     ): ShoppingViewModel {
+        fakeListOrderRepo = FakeListOrderRepository().also { it.timestamps.putAll(preloadedListOrder) }
         fakeListRepo = FakeListRepository(initialLists, addEditorError)
         return ShoppingViewModel(
             currentUserFlow = MutableStateFlow(TEST_USER),
             listRepository = fakeListRepo,
             repositoryFactory = { _, _ -> FakeShoppingRepository() },
+            listOrderRepository = fakeListOrderRepo,
+            clock = fakeClock,
         ).also { vm ->
             collectScope.launch { vm.uiState.collect {} }
         }
@@ -49,6 +59,7 @@ class ShoppingViewModelTest {
 
     @BeforeEach
     fun setUp() {
+        fakeTime = 1000L
         Dispatchers.setMain(testDispatcher)
         collectScope = CoroutineScope(testDispatcher)
         viewModel = makeViewModel()
@@ -463,18 +474,32 @@ class ShoppingViewModelTest {
     }
 
     @Test
-    fun `lists are sorted alphabetically, owned list is auto-selected`() {
+    fun `with no owned list and no prior usage, auto-selects first list`() {
         val vm = makeViewModel(
             initialLists = listOf(
-                ListMetadata("b", "Bananas", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata("b", "B_List", isOwner = false, ownerUid = OTHER_UID),
                 ListMetadata("a", "Apples", isOwner = false, ownerUid = OTHER_UID),
             ),
         )
-        assertEquals(listOf("Apples", "Bananas"), vm.uiState.value.lists.map { it.name })
-        assertEquals("Bananas", vm.uiState.value.currentListName)
+        // No ts > 0, no isOwner → lists.first() in snapshot order, which is B_List.
+        assertEquals("B_List", vm.uiState.value.currentListName)
+    }
 
-        vm.addList("Avocados")
-        assertEquals(listOf("Apples", "Avocados", "Bananas"), vm.uiState.value.lists.map { it.name })
+    @Test
+    fun `owned list is auto-selected and sorts to top, unvisited lists follow alphabetically`() {
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata("c", "C_List", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata("a", "A_List", isOwner = false, ownerUid = OTHER_UID),
+            ),
+        )
+        // C_List is auto-selected (isOwner=true) and gets a real timestamp; A_List gets 0.
+        assertEquals(listOf("C_List", "A_List"), vm.uiState.value.lists.map { it.name })
+        assertEquals("C_List", vm.uiState.value.currentListName)
+
+        vm.addList("B_List")
+        // B_List is most recent (just created+selected), C_List next, A_List still unvisited.
+        assertEquals(listOf("B_List", "C_List", "A_List"), vm.uiState.value.lists.map { it.name })
     }
 
     // --- list dialog visibility ---
@@ -508,11 +533,11 @@ class ShoppingViewModelTest {
 
     // --- importListFromCsv ---
 
-    private val SIMPLE_CSV = "name,quantity,checked\nApples,3.0,false\nBread,1.0,true"
+    private val _simpleCsv = "name,quantity,checked\nApples,3.0,false\nBread,1.0,true"
 
     @Test
     fun `importListFromCsv creates list with correct items and switches to it`() {
-        viewModel.importListFromCsv("Shopping", SIMPLE_CSV)
+        viewModel.importListFromCsv("Shopping", _simpleCsv)
         assertEquals("Shopping", viewModel.uiState.value.currentListName)
         assertEquals(2, viewModel.uiState.value.lists.size)
         assertEquals(listOf("Apples"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
@@ -525,7 +550,7 @@ class ShoppingViewModelTest {
     fun `importListFromCsv with taken name updates dialog with proposed name and error`() {
         // "Groceries" already exists in the initial list
         viewModel.openImportListDialog()
-        viewModel.importListFromCsv("Groceries", SIMPLE_CSV)
+        viewModel.importListFromCsv("Groceries", _simpleCsv)
         val ds = viewModel.importListDialogState.value!!
         assertEquals("Groceries (1)", ds.proposedName)
         assertTrue(ds.errorMessage!!.contains("Groceries"))
@@ -536,9 +561,9 @@ class ShoppingViewModelTest {
     @Test
     fun `importListFromCsv succeeds on second attempt with proposed name`() {
         viewModel.openImportListDialog()
-        viewModel.importListFromCsv("Groceries", SIMPLE_CSV)
+        viewModel.importListFromCsv("Groceries", _simpleCsv)
         assertEquals("Groceries (1)", viewModel.importListDialogState.value?.proposedName)
-        viewModel.importListFromCsv("Groceries (1)", SIMPLE_CSV)
+        viewModel.importListFromCsv("Groceries (1)", _simpleCsv)
         assertEquals("Groceries (1)", viewModel.uiState.value.currentListName)
         assertEquals(listOf("Apples"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
         assertEquals(listOf("Bread"), viewModel.uiState.value.checkedItems.map { it.fields.name })
@@ -548,7 +573,7 @@ class ShoppingViewModelTest {
     @Test
     fun `importListFromCsv name collision is case-insensitive`() {
         viewModel.openImportListDialog()
-        viewModel.importListFromCsv("groceries", SIMPLE_CSV)
+        viewModel.importListFromCsv("groceries", _simpleCsv)
         assertEquals("groceries (1)", viewModel.importListDialogState.value?.proposedName)
     }
 
@@ -561,7 +586,7 @@ class ShoppingViewModelTest {
             ),
         )
         vm.openImportListDialog()
-        vm.importListFromCsv("Groceries", SIMPLE_CSV)
+        vm.importListFromCsv("Groceries", _simpleCsv)
         assertEquals("Groceries (3)", vm.importListDialogState.value?.proposedName)
     }
 
@@ -577,7 +602,7 @@ class ShoppingViewModelTest {
 
     @Test
     fun `imported items are not on the undo stack`() {
-        viewModel.importListFromCsv("Shopping", SIMPLE_CSV)
+        viewModel.importListFromCsv("Shopping", _simpleCsv)
         assertFalse(viewModel.uiState.value.undoAvailable)
     }
 
@@ -592,7 +617,117 @@ class ShoppingViewModelTest {
 
     @Test
     fun `importListFromCsv with blank name does nothing`() {
-        viewModel.importListFromCsv("  ", SIMPLE_CSV)
+        viewModel.importListFromCsv("  ", _simpleCsv)
         assertEquals(1, viewModel.uiState.value.lists.size)
+    }
+
+    // --- MRU list ordering ---
+
+    @Test
+    fun `unvisited lists on initial load sort alphabetically by name`() {
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata("c", "C_List", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata("a", "a_list", isOwner = false, ownerUid = OTHER_UID),
+                ListMetadata("b", "B_List", isOwner = false, ownerUid = OTHER_UID),
+            ),
+        )
+        // C_List auto-selected (isOwner=true), gets real timestamp; a_list and B_List get 0.
+        assertEquals(listOf("C_List", "a_list", "B_List"), vm.uiState.value.lists.map { it.name })
+    }
+
+    @Test
+    fun `selectList moves list to top`() {
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata(LIST_ID, "Groceries", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata("list-2", "Hardware", isOwner = false, ownerUid = OTHER_UID),
+            ),
+        )
+        assertEquals("Groceries", vm.uiState.value.lists.first().name)
+
+        vm.selectList("list-2")
+        assertEquals("Hardware", vm.uiState.value.lists.first().name)
+    }
+
+    @Test
+    fun `newly shared list appears 2nd from top`() {
+        // Groceries auto-selected on startup.
+        fakeListRepo.simulateExternalListAdd(
+            ListMetadata("shared-1", "Shared List", isOwner = false, ownerUid = OTHER_UID),
+        )
+        val names = viewModel.uiState.value.lists.map { it.name }
+        assertEquals("Groceries", names[0])
+        assertEquals("Shared List", names[1])
+    }
+
+    @Test
+    fun `multiple shared lists arriving in separate snapshots appear alphabetically after current list`() {
+        // Groceries auto-selected on startup; timestamp = 1000.
+        fakeListRepo.simulateExternalListAdd(
+            ListMetadata("shared-z", "Z List", isOwner = false, ownerUid = OTHER_UID),
+        )
+        // Z List gets sharedTs = 1000 - 1 = 999.
+        fakeListRepo.simulateExternalListAdd(
+            ListMetadata("shared-a", "A List", isOwner = false, ownerUid = OTHER_UID),
+        )
+        // A List gets sharedTs = max(1000, 999) - 1 = 999 (same as Z List).
+        // Both at 999 → alphabetical tiebreak: A List before Z List.
+        assertEquals(
+            listOf("Groceries", "A List", "Z List"),
+            viewModel.uiState.value.lists.map { it.name },
+        )
+    }
+
+    @Test
+    fun `newly shared lists land 2nd and 3rd - switching list puts it first`() {
+        val hardwareId = "list-2"
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata(LIST_ID, "Groceries", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata(hardwareId, "Hardware", isOwner = false, ownerUid = OTHER_UID),
+            ),
+        )
+        // Groceries auto-selected; Hardware unvisited (ts=0).
+        fakeListRepo.simulateExternalListAdd(
+            ListMetadata("p", "P List", isOwner = false, ownerUid = OTHER_UID),
+        )
+        fakeListRepo.simulateExternalListAdd(
+            ListMetadata("q", "Q List", isOwner = false, ownerUid = OTHER_UID),
+        )
+        // Both shared lists land at sharedTs = max(Groceries_ts, Hardware_ts) - 1.
+        // Alphabetical tiebreak puts P List before Q List. Hardware (ts=0) remains last.
+        assertEquals(
+            listOf("Groceries", "P List", "Q List", "Hardware"),
+            vm.uiState.value.lists.map { it.name },
+        )
+
+        vm.selectList(hardwareId)
+        assertEquals(
+            listOf("Hardware", "Groceries", "P List", "Q List"),
+            vm.uiState.value.lists.map { it.name },
+        )
+    }
+
+    @Test
+    fun `deleted list is removed from order tracking`() {
+        viewModel.deleteCurrentList()
+        assertFalse(fakeListOrderRepo.timestamps.containsKey(LIST_ID))
+    }
+
+    @Test
+    fun `on reopen, app selects and sorts to the most recently used list`() {
+        // Simulate a prior session where Hardware was most recently used.
+        val hardwareId = "list-hardware"
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata(LIST_ID, "Groceries", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata(hardwareId, "Hardware", isOwner = false, ownerUid = OTHER_UID),
+            ),
+            preloadedListOrder = mapOf(LIST_ID to 500L, hardwareId to 999L),
+        )
+        // Hardware has the highest preloaded timestamp: auto-selected and sorts first.
+        assertEquals("Hardware", vm.uiState.value.currentListName)
+        assertEquals(listOf("Hardware", "Groceries"), vm.uiState.value.lists.map { it.name })
     }
 }

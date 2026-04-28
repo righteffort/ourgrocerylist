@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import org.righteffort.ourgrocerylist.BuildConfig
 import org.righteffort.ourgrocerylist.DebugFirebaseEnvironment
 import org.righteffort.ourgrocerylist.OurGroceryListApp
+import org.righteffort.ourgrocerylist.client.DataStoreListOrderRepository
 import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
 import org.righteffort.ourgrocerylist.ui.theme.OurGroceryListTheme
 import org.righteffort.ourgrocerylist.undo.UndoRedoStackRepository
@@ -42,6 +43,7 @@ class MainActivity : ComponentActivity() {
                     stackRepositoryFactory = { listId ->
                         UndoRedoStackRepository(app.preferences, listId)
                     },
+                    listOrderRepository = DataStoreListOrderRepository(app.preferences),
                 )
             }
         }

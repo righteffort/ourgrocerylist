@@ -15,6 +15,7 @@ import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
+import org.righteffort.ourgrocerylist.client.FakeListOrderRepository
 import org.righteffort.ourgrocerylist.model.User
 import org.righteffort.ourgrocerylist.repository.FirestoreListRepository
 import org.righteffort.ourgrocerylist.repository.FirestoreShoppingRepository
@@ -89,6 +90,7 @@ internal suspend fun setupUser(testUser: TestUser, options: FirebaseOptions) {
                 clientId = UUID.randomUUID().toString(),
             )
         },
+        listOrderRepository = FakeListOrderRepository(),
     )
 }
 

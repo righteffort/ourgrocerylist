@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.righteffort.ourgrocerylist.client.ListOrderRepository
 import org.righteffort.ourgrocerylist.model.Command
 import org.righteffort.ourgrocerylist.model.ItemFields
 import org.righteffort.ourgrocerylist.model.ListMetadata
@@ -46,6 +47,8 @@ class ShoppingViewModel(
     private val repositoryFactory: (ownerUid: String, listId: String) -> ShoppingRepository,
     appErrors: Flow<String> = emptyFlow(),
     private val stackRepositoryFactory: ((listId: String) -> UndoRedoStackRepository)? = null,
+    private val listOrderRepository: ListOrderRepository,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
 
     private data class ListResources(
@@ -86,6 +89,8 @@ class ShoppingViewModel(
         val items: List<ShoppingItem>,
         val undoState: UndoRedoState,
     )
+
+    private val _mruTimestamps = MutableStateFlow<Map<String, Long>>(emptyMap())
 
     private val _dialogState = MutableStateFlow<ItemDialogState?>(null)
     val dialogState: StateFlow<ItemDialogState?> = _dialogState.asStateFlow()
@@ -131,17 +136,28 @@ class ShoppingViewModel(
             }
         }
         viewModelScope.launch {
+            _mruTimestamps.value = listOrderRepository.loadAll()
+
             listRepository.observeLists()
                 .catch { e -> logAndEmitFatalError("Failed to observe lists", e) }
                 .collect { lists ->
                     Timber.v("DEBUG SVM ${currentUserFlow.value?.email} observeLists lists=${lists.map { it }}")
                     val newIds = lists.map { it.id }.toSet()
 
+                    // Capture before the loop: true only for the very first non-empty snapshot.
+                    val isFirstSnapshot = listResources.isEmpty()
+                    // Capture before the loop: remove() below would clear entries we still need to check.
+                    val pendingAtSnapshot = _pendingAddListIds.toSet()
+                    val newlyDiscovered = mutableListOf<ListMetadata>()
+
                     // Create resources for newly discovered lists and start remote-change listeners.
                     for (list in lists) {
                         _pendingAddListIds.remove(list.id)
                         if (list.id !in listResources) {
                             getOrCreateResources(list)
+                            if (list.id !in pendingAtSnapshot && list.id !in _mruTimestamps.value) {
+                                newlyDiscovered.add(list)
+                            }
                         }
                     }
 
@@ -165,6 +181,16 @@ class ShoppingViewModel(
                         return@collect
                     }
 
+                    // Assign MRU timestamps to newly discovered lists.
+                    // First snapshot: all get 0 so they sort alphabetically via tiebreak.
+                    // Later snapshots: these are shared lists — they land just below the current top.
+                    if (isFirstSnapshot) {
+                        for (list in newlyDiscovered) markUsed(list.id, 0L)
+                    } else {
+                        val sharedTs = (_mruTimestamps.value.values.maxOrNull() ?: clock()) - 1
+                        for (list in newlyDiscovered) markUsed(list.id, sharedTs)
+                    }
+
                     // Cancel and remove resources for lists no longer accessible.
                     // _pendingAddListIds are excluded: a non-empty snapshot may arrive before a
                     // pending addList write is confirmed, and we must not destroy those resources.
@@ -172,6 +198,8 @@ class ShoppingViewModel(
                     for (id in removedIds) {
                         listResources[id]?.observationJob?.cancel()
                         listResources.remove(id)
+                        _mruTimestamps.update { it - id }
+                        viewModelScope.launch { listOrderRepository.remove(id) }
                     }
 
                     // Atomically update lists and currentListId so uiState never emits a state
@@ -193,7 +221,14 @@ class ShoppingViewModel(
                                 // appeared in any snapshot; it is cleared entry-by-entry above as each
                                 // list is confirmed. It is also excluded from the removedIds cleanup
                                 // above so those resources are not destroyed before the list appears.
-                                val selected = lists.firstOrNull { it.isOwner } ?: lists.first()
+                                // For returning users, prefer the most recently used list so the app
+                                // reopens on the same list the user was on. For new users (all
+                                // timestamps 0), fall back to the owned list.
+                                val selected = lists
+                                    .filter { (_mruTimestamps.value[it.id] ?: 0L) > 0L }
+                                    .maxByOrNull { _mruTimestamps.value[it.id]!! }
+                                    ?: lists.firstOrNull { it.isOwner }
+                                    ?: lists.first()
                                 Timber.v("DEBUG SVM ${currentUserFlow.value?.email} preferred auto-selecting list=$selected over current.currentListId")
                                 selected.id
                             } else {
@@ -201,6 +236,12 @@ class ShoppingViewModel(
                                 current.currentListId
                             }
                         ListSelectionState(lists, newCurrentId)
+                    }
+                    // Bootstrap MRU for the auto-selected list on fresh install (ts == 0 means
+                    // never explicitly used; returning users already have real timestamps and
+                    // their MRU order is preserved as-is).
+                    _listSelection.value.currentListId?.let { id ->
+                        if ((_mruTimestamps.value[id] ?: 0L) == 0L) markUsed(id)
                     }
                     Timber.v("DEBUG SVM ${currentUserFlow.value?.email} lists non-empty, updated _listSelection ${_listSelection.value.currentListName()} currentListId=${_listSelection.value.currentListId} lists=${lists.map { it }}")
                 }
@@ -224,7 +265,7 @@ class ShoppingViewModel(
                 undoRedoManager.initialize()
                 repo.observeRemotelyModifiedItemIds()
                     .catch { e ->
-                        Timber.d("SVM ${currentUserFlow.value?.email} failed to observe remote changes for ${list.id}, can't trust undo/redo!");
+                        Timber.d("SVM ${currentUserFlow.value?.email} failed to observe remote changes for ${list.id}, can't trust undo/redo!")
                         logAndEmitError(
                             "can't trust undo/redo: failed to observe remote changes for ${list.id}",
                             e
@@ -272,7 +313,8 @@ class ShoppingViewModel(
             }
         },
         currentUserFlow,
-    ) { activeListState, currentUser ->
+        _mruTimestamps,
+    ) { activeListState, currentUser, mruTimestamps ->
         val currentList = activeListState.lists.find { it.id == activeListState.listId }
         Timber.v("DEBUG SVM ${currentUserFlow.value?.email} building UiState lists=${activeListState.lists.map { it }} currentList=${currentList}")
         val (checked, unchecked) = activeListState.items.partition { it.fields.checked }
@@ -283,7 +325,7 @@ class ShoppingViewModel(
             undoAvailable = activeListState.undoState.undoAvailable,
             redoAvailable = activeListState.undoState.redoAvailable,
             currentListName = currentList?.name ?: "",
-            lists = activeListState.lists.sortedBy { it.name.lowercase() },
+            lists = mruSortedLists(activeListState.lists, mruTimestamps),
             isOwner = currentList?.isOwner ?: false,
             currentUserEmail = currentUser?.email ?: "",
         )
@@ -389,6 +431,7 @@ class ShoppingViewModel(
 
     fun selectList(listId: String) {
         _listSelection.update { it.copy(currentListId = listId) }
+        markUsed(listId)
     }
 
     fun addList(name: String) {
@@ -406,6 +449,7 @@ class ShoppingViewModel(
                 _pendingAddListIds.add(id)
                 Timber.v("DEBUG SVM ${currentUserFlow.value?.email} addList completing: updating _currentListId from ${_listSelection.value.currentListId} to $id (name=$trimmed)")
                 _listSelection.update { it.copy(currentListId = id) }
+                markUsed(id)
                 Timber.v("DEBUG SVM ${currentUserFlow.value?.email} created list name=$trimmed id=$id")
             } catch (e: Exception) {
                 logAndEmitError("Failed to create list", e)
@@ -518,6 +562,7 @@ class ShoppingViewModel(
                     )
                 }
                 _listSelection.update { it.copy(currentListId = listId) }
+                markUsed(listId)
                 dismissImportListDialog()
             } catch (e: Exception) {
                 logAndEmitError("Failed to import list", e)
@@ -570,6 +615,20 @@ class ShoppingViewModel(
     }
 
     // --- Helpers ---
+
+    private fun markUsed(listId: String, timestamp: Long = clock()) {
+        _mruTimestamps.update { it + (listId to timestamp) }
+        viewModelScope.launch { listOrderRepository.save(listId, timestamp) }
+    }
+
+    private fun mruSortedLists(
+        lists: List<ListMetadata>,
+        mruTimestamps: Map<String, Long>,
+    ): List<ListMetadata> =
+        lists.sortedWith(
+            compareByDescending<ListMetadata> { mruTimestamps[it.id] }
+                .thenBy { it.name.lowercase() }
+        )
 
     private fun applyCommand(command: Command) {
         val listId = _listSelection.value.currentListId ?: return

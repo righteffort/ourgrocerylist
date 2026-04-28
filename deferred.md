@@ -1,10 +1,29 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
+- BUG: sometimes focus moves with the swiped item ?!?!?!?
+- BUG: user A creates stuff, shares with user B; user B runs for the first time -- overflow menu is only partially populated; espcially, 'import' is missing.
+- Test the UX as a list editor
+- Nice to have: editor can rename list
+- Sign out is ugly:
+  - Ephemeral permission denied (should revert to "loading"
+  - Cancel login goes to "Something went wrong"
+  - Affordances in import are weird, Import doesn't change appearance once file is selected
+- Divider between checked/unchecked is too short
+- Delay during adding editor is mysterious
+- Toasts aren't very toasty
+- Nice to have:
+  - Multiselect import
+  - Multiselect share
+- Proposed imported list name should be trimmed
+- Importing with dup name didn't work? Confusing at least
+- FR: move item to list
+- change UndoRepository directory
+- high-level logging even in prod builds
 - maybe give a nicer way to recover from "can't connect to emulator" than deleting app data or starting the emulator and/or running adb reverse
 - delete list trigger is broken after refactor.
 - add a delete user trigger.
 - probably an integration test for undo/redo stack pruning
 - make account & data deletion easy for users (not just 'email me') https://support.google.com/googleplay/android-developer/answer/13327111
-- write a privacy policy 
+- write a privacy policy
 - automated backup of firestore (encrypt with per user keys and throw away the key on account deletion)
 - allow EU users
 - add one or more tests to @app/src/test/java/org/righteffort/ourgrocerylist/ResilienceIntegrationTest.kt that exercise competing list additions and deletions
@@ -17,7 +36,7 @@ These aspects have not yet been fully designed and implemented and are deferred 
   - review for swallowed errors
   - review locations that throw 'fatal' errors to see if they are recoverable at a lower level than the application 'root'
 - behavior when firebase functions are unavailable is weak: "INTERNAL"
-- behavior when creating list and firestore offline is weak (at least i think that's the cause of this): PERMISSION_DENIED: evaluation error at L87:16 for 'list' @ L87, Null value error. for 'list' @ L87. Or maybe worse, silently does nothing! 
+- behavior when creating list and firestore offline is weak (at least i think that's the cause of this): PERMISSION_DENIED: evaluation error at L87:16 for 'list' @ L87, Null value error. for 'list' @ L87. Or maybe worse, silently does nothing!
 - metadata in lists and items: at least creation and modification time
 - allowlist in firestore `authorizedUsers` collection of empty documents with email as id, then `function isAuthorized() { return request.auth != null && exists(/databases/$(database)/documents/authorizedUsers/$(request.auth.email)); }`
 - TODOs generally
@@ -107,7 +126,7 @@ These aspects might never be implemented
 - integration tests add test users to firestore whitelist, though realistically that means editing the string form of the rules one way or another
 - user-selected CSV import headers
 - detection of conflicts between mutations and deletes, presumably involving tombstones
-- server-side validation of client-provided fingerprints 
+- server-side validation of client-provided fingerprints
 - maintaining a list of 'invited editors' (email addresses) and
   generating invitations to install the app when lists are shared, and
   something like a 'login' function at app startup that updates
@@ -129,4 +148,4 @@ These aspects might never be implemented
 
 These aspects will almost certainly never be implemented.
 - Vestiges of obsolete design
-  - Proxying mutations through a cloud function, along with a request queue. 
+  - Proxying mutations through a cloud function, along with a request queue.

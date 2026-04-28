@@ -34,4 +34,8 @@ class FakeListRepository(
         if (addEditorError != null) throw addEditorError
 	// TODO: actually update state
     }
+
+    fun simulateExternalListAdd(list: ListMetadata) {
+        _lists.value = _lists.value + list
+    }
 }
