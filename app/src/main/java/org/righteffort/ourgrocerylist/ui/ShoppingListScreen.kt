@@ -4,7 +4,6 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -71,7 +70,7 @@ import org.righteffort.ourgrocerylist.model.ShoppingItem
 import org.righteffort.ourgrocerylist.util.formatQuantityNumber
 import java.io.IOException
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShoppingListScreen(
     viewModel: ShoppingViewModel,
@@ -207,6 +206,7 @@ fun ShoppingListScreen(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
+                expandedHeight = 64.0.dp,  // TODO: this is the default, is it what we want?
                 actions = {
                     OverflowMenu(
                         isOwner = state.isOwner,
@@ -378,7 +378,6 @@ private fun AddItemField(
 // See ItemRow.md for the design rationale: SwipeToDismissBox + Surface(onClick),
 // the LaunchedEffect/reset() replacement for the deprecated confirmValueChange,
 // and why thresholdMet reads requireOffset() instead of targetValue.
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ItemRow(
     item: ShoppingItem,
