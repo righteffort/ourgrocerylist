@@ -13,8 +13,8 @@ private fun ItemRowPreview() {
         ItemRow(
             item = ShoppingItem("123", ItemFields("item name", 2.0, false)),
             isAlternate = false,
-            onCheckedChange = {},
-            onClick = {},
+            onToggle = {},
+            onLongPress = {},
         )
     }
 }

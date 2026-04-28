@@ -76,6 +76,10 @@ Core functionality implemented: Add, edit, delete, check/uncheck items. Edit dia
   making.
 - For trivial questions (e.g. "what is the project id?") just ask.
 
+## Running tests
+
+- Unit tests: `./gradlew :app:testDebugUnitTest`
+
 ## Repository Structure
 
 - `main` branch: stable/production code

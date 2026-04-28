@@ -3,15 +3,20 @@ package org.righteffort.ourgrocerylist.ui
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,11 +26,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,11 +56,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -248,8 +259,8 @@ fun ShoppingListScreen(
                     ItemRow(
                         item = item,
                         isAlternate = index % 2 == 1,
-                        onCheckedChange = { viewModel.checkItem(item) },
-                        onClick = { viewModel.openEditDialog(item) },
+                        onToggle = { viewModel.toggleItem(item) },
+                        onLongPress = { viewModel.openEditDialog(item) },
                     )
                 }
 
@@ -269,8 +280,8 @@ fun ShoppingListScreen(
                     ItemRow(
                         item = item,
                         isAlternate = index % 2 == 1,
-                        onCheckedChange = { viewModel.uncheckItem(item) },
-                        onClick = { viewModel.openEditDialog(item) },
+                        onToggle = { viewModel.toggleItem(item) },
+                        onLongPress = { viewModel.openEditDialog(item) },
                     )
                 }
             }
@@ -362,42 +373,91 @@ private fun AddItemField(
 internal fun ItemRow(
     item: ShoppingItem,
     isAlternate: Boolean,
-    onCheckedChange: () -> Unit,
-    onClick: () -> Unit,
+    onToggle: () -> Unit,
+    onLongPress: () -> Unit,
 ) {
-    val backgroundColor = if (isAlternate) {
+    val rowColor = if (isAlternate) {
         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
     } else {
         MaterialTheme.colorScheme.surface
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(backgroundColor)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 6.dp, vertical = 0.dp),  // TODO: needs review
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Checkbox(
-            checked = item.fields.checked,
-            onCheckedChange = { onCheckedChange() },
-            colors = CheckboxDefaults.colors(
-                checkedColor = MaterialTheme.colorScheme.primary,
-            ),
-        )
-        Text(
-            text = item.fields.name,
+    val scope = rememberCoroutineScope()
+    val offsetX = remember { Animatable(0f) }
+    val density = LocalDensity.current
+    val swipeThreshold = remember(density) { with(density) { 80.dp.toPx() } }
+
+    val thresholdMet = abs(offsetX.value) >= swipeThreshold
+    val revealColor = if (thresholdMet) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.primaryContainer
+    }
+    val revealIconTint = if (thresholdMet) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        if (abs(offsetX.value) >= 1f) {
+            Row(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(revealColor)
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = if (offsetX.value > 0) Arrangement.Start else Arrangement.End,
+            ) {
+                val revealIcon = if (item.fields.checked) Icons.Default.CheckBoxOutlineBlank else Icons.Default.CheckBox
+                Icon(imageVector = revealIcon, contentDescription = null, tint = revealIconTint)
+            }
+        }
+
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .padding(start = 8.dp),
-            textDecoration = if (item.fields.checked) TextDecoration.LineThrough else null,
-        )
-        if (item.fields.quantity != 1.0) {
+                .fillMaxWidth()
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .background(rowColor)
+                .pointerInput(Unit) {
+                    coroutineScope {
+                        launch {
+                            detectHorizontalDragGestures(
+                                onHorizontalDrag = { _, delta ->
+                                    scope.launch { offsetX.snapTo(offsetX.value + delta) }
+                                },
+                                onDragEnd = {
+                                    scope.launch {
+                                        if (abs(offsetX.value) >= swipeThreshold) onToggle()
+                                        offsetX.animateTo(0f, spring())
+                                    }
+                                },
+                                onDragCancel = {
+                                    scope.launch { offsetX.animateTo(0f, spring()) }
+                                },
+                            )
+                        }
+                        launch {
+                            detectTapGestures(onLongPress = { onLongPress() })
+                        }
+                    }
+                }
+                .padding(horizontal = 6.dp, vertical = 6.dp),  // TODO: needs review
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                text = formatQuantity(item.fields.quantity),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = item.fields.name,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 8.dp),
+                textDecoration = if (item.fields.checked) TextDecoration.LineThrough else null,
             )
+            if (item.fields.quantity != 1.0) {
+                Text(
+                    text = formatQuantity(item.fields.quantity),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

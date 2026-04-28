@@ -120,6 +120,23 @@ class ShoppingViewModelTest {
     }
 
     @Test
+    fun `toggleItem checks an unchecked item`() {
+        viewModel.addItem("Bread")
+        viewModel.toggleItem(viewModel.uiState.value.uncheckedItems.single())
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+        assertEquals(listOf("Bread"), viewModel.uiState.value.checkedItems.map { it.fields.name })
+    }
+
+    @Test
+    fun `toggleItem unchecks a checked item`() {
+        viewModel.addItem("Bread")
+        viewModel.checkItem(viewModel.uiState.value.uncheckedItems.single())
+        viewModel.toggleItem(viewModel.uiState.value.checkedItems.single())
+        assertTrue(viewModel.uiState.value.checkedItems.isEmpty())
+        assertEquals(listOf("Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+    }
+
+    @Test
     fun `checked and unchecked sections are each independently alphabetized`() {
         listOf("Milk", "Apples", "Zucchini", "Bread").forEach { viewModel.addItem(it) }
         viewModel.checkItem(viewModel.uiState.value.uncheckedItems.first { it.fields.name == "Milk" })

@@ -316,6 +316,10 @@ class ShoppingViewModel(
         applyCommand(Command.UncheckItem(item))
     }
 
+    fun toggleItem(item: ShoppingItem) {
+        if (item.fields.checked) uncheckItem(item) else checkItem(item)
+    }
+
     fun undo() {
         val listId = _listSelection.value.currentListId ?: return
         viewModelScope.launch {
