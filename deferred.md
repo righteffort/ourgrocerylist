@@ -1,4 +1,5 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
+- maybe tune uncheck/check animation, see unimplemented.md
 - BUG: sometimes focus moves with the swiped item ?!?!?!?
 - BUG: user A creates stuff, shares with user B; user B runs for the first time -- overflow menu is only partially populated; espcially, 'import' is missing.
 - Test the UX as a list editor

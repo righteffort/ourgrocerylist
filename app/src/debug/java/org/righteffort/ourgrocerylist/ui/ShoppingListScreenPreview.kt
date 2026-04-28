@@ -14,7 +14,7 @@ private fun ItemRowPreview() {
             item = ShoppingItem("123", ItemFields("item name", 2.0, false)),
             isAlternate = false,
             onToggle = {},
-            onLongPress = {},
+            onEdit = {},
         )
     }
 }

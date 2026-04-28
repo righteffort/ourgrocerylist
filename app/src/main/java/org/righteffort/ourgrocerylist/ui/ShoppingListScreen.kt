@@ -3,20 +3,17 @@ package org.righteffort.ourgrocerylist.ui
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,10 +39,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -56,17 +57,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import kotlin.math.abs
-import kotlin.math.roundToInt
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -75,7 +71,7 @@ import org.righteffort.ourgrocerylist.model.ShoppingItem
 import org.righteffort.ourgrocerylist.util.formatQuantityNumber
 import java.io.IOException
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ShoppingListScreen(
     viewModel: ShoppingViewModel,
@@ -260,7 +256,12 @@ fun ShoppingListScreen(
                         item = item,
                         isAlternate = index % 2 == 1,
                         onToggle = { viewModel.toggleItem(item) },
-                        onLongPress = { viewModel.openEditDialog(item) },
+                        onEdit = { viewModel.openEditDialog(item) },
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(durationMillis = 1000),
+                            fadeOutSpec = tween(durationMillis = 1000),
+                            placementSpec = tween(durationMillis = 1000)
+                        )
                     )
                 }
 
@@ -281,7 +282,12 @@ fun ShoppingListScreen(
                         item = item,
                         isAlternate = index % 2 == 1,
                         onToggle = { viewModel.toggleItem(item) },
-                        onLongPress = { viewModel.openEditDialog(item) },
+                        onEdit = { viewModel.openEditDialog(item) },
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(durationMillis = 1000),
+                            fadeOutSpec = tween(durationMillis = 1000),
+                            placementSpec = tween(durationMillis = 1000)
+                        )
                     )
                 }
             }
@@ -369,12 +375,17 @@ private fun AddItemField(
     )
 }
 
+// See ItemRow.md for the design rationale: SwipeToDismissBox + Surface(onClick),
+// the LaunchedEffect/reset() replacement for the deprecated confirmValueChange,
+// and why thresholdMet reads requireOffset() instead of targetValue.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ItemRow(
     item: ShoppingItem,
     isAlternate: Boolean,
     onToggle: () -> Unit,
-    onLongPress: () -> Unit,
+    onEdit: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val rowColor = if (isAlternate) {
         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
@@ -382,12 +393,26 @@ internal fun ItemRow(
         MaterialTheme.colorScheme.surface
     }
 
-    val scope = rememberCoroutineScope()
-    val offsetX = remember { Animatable(0f) }
     val density = LocalDensity.current
-    val swipeThreshold = remember(density) { with(density) { 80.dp.toPx() } }
+    val swipeThresholdPx = remember(density) { with(density) { 80.dp.toPx() } }
 
-    val thresholdMet = abs(offsetX.value) >= swipeThreshold
+    val dismissState = rememberSwipeToDismissBoxState(
+        positionalThreshold = { _ -> swipeThresholdPx },
+    )
+
+    LaunchedEffect(dismissState.currentValue) {
+        if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+            onToggle()
+            dismissState.reset()
+        }
+    }
+
+    // requireOffset() throws while anchors are still being initialized.
+    val thresholdMet = try {
+        kotlin.math.abs(dismissState.requireOffset()) >= swipeThresholdPx
+    } catch (_: IllegalStateException) {
+        false
+    }
     val revealColor = if (thresholdMet) {
         MaterialTheme.colorScheme.primary
     } else {
@@ -399,64 +424,59 @@ internal fun ItemRow(
         MaterialTheme.colorScheme.onPrimaryContainer
     }
 
-    Box(modifier = Modifier.fillMaxWidth()) {
-        if (abs(offsetX.value) >= 1f) {
-            Row(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(revealColor)
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = if (offsetX.value > 0) Arrangement.Start else Arrangement.End,
-            ) {
-                val revealIcon = if (item.fields.checked) Icons.Default.CheckBoxOutlineBlank else Icons.Default.CheckBox
-                Icon(imageVector = revealIcon, contentDescription = null, tint = revealIconTint)
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                .background(rowColor)
-                .pointerInput(Unit) {
-                    coroutineScope {
-                        launch {
-                            detectHorizontalDragGestures(
-                                onHorizontalDrag = { _, delta ->
-                                    scope.launch { offsetX.snapTo(offsetX.value + delta) }
-                                },
-                                onDragEnd = {
-                                    scope.launch {
-                                        if (abs(offsetX.value) >= swipeThreshold) onToggle()
-                                        offsetX.animateTo(0f, spring())
-                                    }
-                                },
-                                onDragCancel = {
-                                    scope.launch { offsetX.animateTo(0f, spring()) }
-                                },
-                            )
-                        }
-                        launch {
-                            detectTapGestures(onLongPress = { onLongPress() })
-                        }
-                    }
+    SwipeToDismissBox(
+        modifier = modifier.fillMaxWidth(),
+        state = dismissState,
+        backgroundContent = {
+            if (dismissState.dismissDirection != SwipeToDismissBoxValue.Settled) {
+                val alignment = when (dismissState.dismissDirection) {
+                    SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                    SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                    SwipeToDismissBoxValue.Settled -> Alignment.Center
                 }
-                .padding(horizontal = 6.dp, vertical = 6.dp),  // TODO: needs review
-            verticalAlignment = Alignment.CenterVertically,
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(revealColor)
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = alignment,
+                ) {
+                    val revealIcon = if (item.fields.checked) {
+                        Icons.Default.CheckBoxOutlineBlank
+                    } else {
+                        Icons.Default.CheckBox
+                    }
+                    Icon(
+                        imageVector = revealIcon,
+                        contentDescription = null,
+                        tint = revealIconTint,
+                    )
+                }
+            }
+        },
+    ) {
+        Surface(
+            onClick = onEdit,
+            color = rowColor,
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(
-                text = item.fields.name,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 8.dp),
-                textDecoration = if (item.fields.checked) TextDecoration.LineThrough else null,
-            )
-            if (item.fields.quantity != 1.0) {
+            Row(
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
-                    text = formatQuantity(item.fields.quantity),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = item.fields.name,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 8.dp),
+                    textDecoration = if (item.fields.checked) TextDecoration.LineThrough else null,
                 )
+                if (item.fields.quantity != 1.0) {
+                    Text(
+                        text = formatQuantity(item.fields.quantity),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

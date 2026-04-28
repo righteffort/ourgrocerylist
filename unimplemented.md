@@ -1,10 +1,42 @@
 See also deferred.md
 
-Fancy animations
+# Fancy animations
+
+A bit outdated
 - **Check:** Checkbox fills with accent color and checkmark. Once animation completes, row collapses and item cross-fades into its alphabetical position in the checked section. Viewport stays anchored to the unchecked section — does not follow the item.
 - **Uncheck:** Checkbox drains (checkmark disappears, border goes gray). Row collapses and item appears in the unchecked section. Viewport stays in the checked section.
 - **Delete:** Row flushes light red, then slides horizontally off the left edge while collapsing vertically. A trashcan icon materializes at the bottom of the screen, appears to receive the deleted item (lid opens and closes), then fades out. No permanent trash list.
 - Remote mutations animate the same way as local ones.
+
+## LazyColumn `animateItem()` tuning options
+
+Applies to `ItemRow` calls in `ShoppingListScreen.kt` (unchecked + checked `itemsIndexed`).
+
+### Parameters
+
+| Param | Default (`animateItem()`) | Snappier option | Notes |
+|---|---|---|---|
+| `fadeOutSpec` | `spring(stiffness = StiffnessMediumLow)` ~400–600ms | `tween(durationMillis = 150)` | Exit should be quick — confirmatory, not decorative |
+| `placementSpec` | `spring(stiffness = StiffnessMediumLow)` slight bounce | `spring(stiffness = StiffnessMedium, dampingRatio = DampingRatioNoBouncy)` ~200ms | Crisp squeeze, no overshoot |
+| `fadeInSpec` | `spring(stiffness = StiffnessMediumLow)` ~400–600ms | `tween(durationMillis = 200)` | Gentle entrance into new section feels "settled" |
+
+Spring stiffness reference: `StiffnessVeryLow`=50, `StiffnessLow`=200, `StiffnessMediumLow`=400 (default), `StiffnessMedium`=1500, `StiffnessHigh`=10000.
+
+### To apply the snappier set
+
+```kotlin
+Modifier.animateItem(
+    fadeInSpec = tween(durationMillis = 200),
+    placementSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioNoBouncy),
+    fadeOutSpec = tween(durationMillis = 150),
+)
+```
+
+Import needed (beyond defaults already in file):
+```kotlin
+import androidx.compose.animation.core.Spring
+```
+
 
 ## UX — undo/redo
 
