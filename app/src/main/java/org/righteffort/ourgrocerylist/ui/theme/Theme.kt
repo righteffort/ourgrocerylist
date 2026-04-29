@@ -5,7 +5,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val AccentPurple = Color(0xFF8775B8)
+private val AccentPurple = Color(0xFFB530c7)  // Keep in sync with icon.svg
 
 private val LightColorScheme = lightColorScheme(
     primary = AccentPurple,
