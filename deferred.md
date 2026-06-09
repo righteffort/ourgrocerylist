@@ -1,4 +1,13 @@
 These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
+- yikes, something is up with undo, I unchecked basil and can't undo to check it. Reproducible if new home of basil is not in vi ewport
+- Search button
+- Maybe +/- inside a row
+- Can I move the whole project intact to a different owner ... Preserving all key IDs, auth fun, etc? Ok if users have to login again
+- Too easy to swipe accidentally e.g. while scrolling ... Even with no horizontal motion
+- No visual FB when item is successfully added
+- "To the glass"  testing whatever it's called
+- Beautiful swipe animations like Gmail app
+- Be a target for sharing csvs
 - maybe tune uncheck/check animation, see unimplemented.md
 - BUG: sometimes focus moves with the swiped item ?!?!?!?
 - BUG: user A creates stuff, shares with user B; user B runs for the first time -- overflow menu is only partially populated; espcially, 'import' is missing.
