@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Grocery app launcher icon (foreground + background)
+  ====================================================
+  Canvas:  108 x 108 dp  (Android adaptive icon spec)
+  Safe zone: central 66dp circle - all critical content inside this
+  Mask zone: typical 72dp circle - content here may or may not show
+            depending on launcher mask (circle, squircle, rounded square)
+
+  Coordinate conventions
+  ~~~~~~~~~~~~~~~~~~~~~~
+  Center of canvas: (54, 54)
+  Basket rim line:  y = 56 (the seam between front rim top and basket body)
+  Basket bottom:    y = 90
+  Handle peak:      y = 30 (well inside the 66dp safe zone)
+
+  Perspective
+  ~~~~~~~~~~~
+  Near-head-on view with a very slight downward angle. All "horizontal"
+  curves on the basket body are smile-shaped (curve down in middle),
+  with progressively more curvature toward the bottom. Only the BACK
+  rim's far edge is frown-shaped (curves up), since it's the far side
+  of the rim opening.
+
+  Stacking order (back to front)
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  1. Background gradient + soft top sheen
+  2. Inner back wall of basket (filled crescent)
+  3. Back rim arc (single stroke, subtly darker than inner wall)
+  4. Right handle (drawn BEFORE groceries so the baguette overlaps it)
+  5. Groceries (clipped at front rim's top edge)
+  6. Front rim band (cream, only top edge stroked)
+  7. Basket body (cream gradient, sides + bottom stroked)
+  8. Weave lines (verticals + horizontals)
+  9. Left handle (drawn AFTER everything else)
+ 10. Knot at handle meeting point
+
+  The whole foreground is wrapped in a single transform group that:
+    - translates up 5.4dp (5% of 108) to fully respect the 66dp safe zone
+    - scales to 95% around center (54, 54)
+-->
+<svg width="320" height="320" viewBox="0 0 108 108"
+     xmlns="http://www.w3.org/2000/svg"
+     role="img"
+     style="display:block;">
+  <title>Grocery app icon</title>
+  <desc>Purple icon with a woven cream basket, crossed handles, and stylized produce.</desc>
+
+  <defs>
+    <!-- Brand purple background, radial so light comes from upper-left -->
+    <radialGradient id="bg" cx="50%" cy="35%" r="75%">
+      <stop offset="0%"   stop-color="#d65cea"/>
+      <stop offset="60%"  stop-color="#b530c7"/>  <!-- keep in sync with Theme.kt -->
+      <stop offset="100%" stop-color="#7d1f8a"/>
+    </radialGradient>
+
+    <!-- Front of basket: cream highlight on top, warmer wheat at bottom -->
+    <linearGradient id="basket" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#fff4e0"/>
+      <stop offset="100%" stop-color="#f0d9a8"/>
+    </linearGradient>
+
+    <!-- Inner back wall of basket: darker tan, top is darkest (less light) -->
+    <linearGradient id="innerWall" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#8a6a3a"/>
+      <stop offset="100%" stop-color="#b8895a"/>
+    </linearGradient>
+
+    <!--
+      Clip path for groceries: cuts them off along the FRONT rim's top edge
+      so they appear to sit inside the basket, with their lower portions
+      hidden behind the front lip.
+    -->
+    <clipPath id="frontRimClip">
+      <path d="M 0 0
+               L 108 0
+               L 108 56
+               Q 54 57.5 0 56 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- ============================================================
+       LAYER 1: BACKGROUND
+       ============================================================ -->
+  <g id="background">
+    <rect width="108" height="108" fill="url(#bg)"/>
+    <!-- Soft top sheen for depth -->
+    <ellipse cx="40" cy="20" rx="50" ry="22" fill="#ffffff" opacity="0.08"/>
+  </g>
+
+  <!-- ============================================================
+       FOREGROUND: nudged up 5%, scaled to 95% around center
+       ============================================================ -->
+  <g id="foreground" transform="translate(54 46) scale(0.95) translate(-54 -54)">
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         LAYER 2: INNER BACK WALL OF BASKET
+         A filled crescent visible above the front rim and behind
+         the groceries. Without this, the purple background would
+         show between/around the items.
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <g id="back-wall">
+      <!-- Top edge: Q 54 52  (frown - far side of rim opening) -->
+      <!-- Bottom edge: Q 54 57.5 (matches front rim TOP edge) -->
+      <path d="M 28 56
+               Q 54 52 80 56
+               Q 54 57.5 28 56 Z"
+            fill="url(#innerWall)"/>
+
+      <!-- Single subtle arc marking the upper lip of the back rim -->
+      <path d="M 28 56 Q 54 52 80 56"
+            stroke="#7d5c30" stroke-width="0.6"
+            fill="none" stroke-linecap="round" opacity="0.7"/>
+    </g>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         LAYER 2b: RIGHT HANDLE (back layer)
+         The right handle is drawn HERE (before groceries) so the
+         baguette - which leans toward the right side of the basket -
+         paints on top of it. The left handle and knot are drawn
+         later, after everything else, so they sit in front.
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <g id="right-handle" fill="none" stroke-linecap="round">
+      <path d="M 78 56 Q 66 30 54 32"
+            stroke="#fff4e0" stroke-width="3"/>
+      <path d="M 78 56 Q 66 30 54 32"
+            stroke="#c89a4a" stroke-width="0.6" opacity="0.5"/>
+    </g>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         LAYER 3: GROCERIES
+         Clipped along the front rim's top edge so the front lip
+         occludes their lower portions. The whole group is also
+         translated down 5.4 (5% of canvas) to settle them deeper
+         into the basket bowl.
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <g id="groceries"
+       clip-path="url(#frontRimClip)"
+       transform="translate(0 5.4)">
+
+      <!-- Baguette: tall loaf leaning ~20° to the right -->
+      <g id="baguette" transform="rotate(20 62 40)">
+        <rect x="56" y="26" width="12" height="32" rx="6" fill="#f0c878"/>
+        <!-- Diagonal scoring marks across the loaf -->
+        <line x1="58" y1="32" x2="66" y2="32"
+              stroke="#c89a4a" stroke-width="1" stroke-linecap="round"/>
+        <line x1="58" y1="38" x2="66" y2="38"
+              stroke="#c89a4a" stroke-width="1" stroke-linecap="round"/>
+        <line x1="58" y1="44" x2="66" y2="44"
+              stroke="#c89a4a" stroke-width="1" stroke-linecap="round"/>
+        <line x1="58" y1="50" x2="66" y2="50"
+              stroke="#c89a4a" stroke-width="1" stroke-linecap="round"/>
+      </g>
+
+      <!-- Leafy greens: cluster of overlapping circles + visible stem -->
+      <g id="leafy-greens">
+        <!-- Stem: extends up into the leaf cluster so no gap shows -->
+        <rect x="40" y="34" width="3" height="24" fill="#c8e6b0"/>
+        <!-- Leaves: layered circles at varying greens for depth -->
+        <circle cx="36" cy="36" r="5"   fill="#5eb073"/>
+        <circle cx="42" cy="32" r="6"   fill="#7dc88a"/>
+        <circle cx="38" cy="30" r="4"   fill="#9ad9a3"/>
+        <circle cx="46" cy="36" r="4.5" fill="#5eb073"/>
+        <circle cx="34" cy="42" r="4.5" fill="#7dc88a"/>
+      </g>
+
+      <!-- Tomato/apple: round red-orange fruit with leaf hint -->
+      <g id="tomato">
+        <circle cx="54" cy="50" r="6.5" fill="#ff8a6b"/>
+        <!-- Highlight -->
+        <ellipse cx="52" cy="48" rx="2" ry="1.5" fill="#ffb59e" opacity="0.7"/>
+        <!-- Tiny green sepal -->
+        <path d="M 53 44 Q 54 41 56 42"
+              stroke="#5eb073" stroke-width="1.5"
+              fill="none" stroke-linecap="round"/>
+      </g>
+
+      <!-- Citrus: small amber circle on the right -->
+      <g id="citrus">
+        <circle cx="68" cy="52" r="5" fill="#ffb84d"/>
+        <!-- Subtle peel arc -->
+        <path d="M 65 49 Q 68 47 71 49"
+              stroke="#e89a2a" stroke-width="0.5"
+              fill="none" opacity="0.5"/>
+      </g>
+    </g>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         LAYER 4: FRONT RIM
+         A single cream band defined by two arcs.
+         Only the TOP arc gets a stroke - the bottom of the rim
+         transitions into the basket body via color, no second line.
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <g id="front-rim">
+      <!-- Filled rim band (no stroke on the path itself) -->
+      <path d="M 28 56
+               Q 54 57.5 80 56
+               Q 54 60.5 28 56 Z"
+            fill="#fff4e0"/>
+      <!-- Top edge stroke only -->
+      <path d="M 28 56 Q 54 57.5 80 56"
+            stroke="#c89a4a" stroke-width="0.7" fill="none"/>
+    </g>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         LAYER 5: BASKET BODY (front + sides)
+         Top edge shares Q 54 60.5 with the front rim's bottom edge
+         so they meet exactly with no gap. Stroke is applied only to
+         the sides and bottom (separate path) so the top edge stays
+         seamless with the rim above.
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <g id="basket-body">
+      <!-- Filled body, no stroke -->
+      <path d="M 28 56
+               Q 54 60.5 80 56
+               L 76 86
+               Q 76 90 72 90
+               L 36 90
+               Q 32 90 32 86 Z"
+            fill="url(#basket)"/>
+      <!-- Side + bottom outline only -->
+      <path d="M 28 56
+               L 32 86
+               Q 32 90 36 90
+               L 72 90
+               Q 76 90 76 86
+               L 80 56"
+            stroke="#c89a4a" stroke-width="0.8" fill="none"/>
+    </g>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         LAYER 6: WEAVE TEXTURE
+         Suggests a woven basket without being noisy.
+         Verticals start at y=58 (just below front rim) so they
+         reach nearly to the top.
+         Horizontals curve progressively more downward toward the
+         bottom of the basket, consistent with the perspective.
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <g id="weave" stroke="#c89a4a" stroke-width="0.6" opacity="0.6">
+      <!-- Verticals -->
+      <g id="weave-verticals" fill="none">
+        <line x1="38" y1="58" x2="39"   y2="88"/>
+        <line x1="46" y1="58" x2="46.5" y2="88"/>
+        <line x1="54" y1="58" x2="54"   y2="88"/>
+        <line x1="62" y1="58" x2="61.5" y2="88"/>
+        <line x1="70" y1="58" x2="69"   y2="88"/>
+      </g>
+      <!-- Horizontals -->
+      <g id="weave-horizontals" fill="none">
+        <path d="M 29 67 Q 54 70 79 67"/>
+        <path d="M 30 75 Q 54 78 78 75"/>
+        <path d="M 31 83 Q 54 86 77 83"/>
+      </g>
+    </g>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         LAYER 7: LEFT HANDLE (front layer)
+         The left handle paints on top of everything else.
+         The right handle was drawn earlier, before groceries,
+         so the baguette appears in front of it.
+         Each handle is drawn twice: a thick cream stroke for
+         body, plus a thin tan inner highlight for subtle depth.
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <g id="left-handle" fill="none" stroke-linecap="round">
+      <path d="M 30 56 Q 42 30 54 32"
+            stroke="#fff4e0" stroke-width="3"/>
+      <path d="M 30 56 Q 42 30 54 32"
+            stroke="#c89a4a" stroke-width="0.6" opacity="0.5"/>
+    </g>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         LAYER 8: KNOT
+         Small disc where the two handles meet, sells the impression
+         that they're tied together rather than just intersecting.
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <circle id="knot" cx="54" cy="32" r="2.5"
+            fill="#fff4e0" stroke="#c89a4a" stroke-width="0.5"/>
+
+  </g>
+
+  <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       DESIGN GUIDES (commented out by default)
+       Uncomment these two circles to verify the foreground stays
+       within Android's adaptive-icon zones. They sit OUTSIDE the
+       foreground transform so they reflect the true canvas geometry,
+       not the 95% scaled / 5%-nudged content space.
+
+         66dp safe zone - all critical content must fit inside this
+                          (radius 33 around center 54,54)
+         72dp mask zone - typical launcher mask boundary; content
+                          here may or may not show depending on the
+                          launcher (circle, squircle, rounded square)
+       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+
+  <!-- <circle cx="54" cy="54" r="33" fill="none" stroke="#ff3366" stroke-width="0.5" stroke-dasharray="2 1.5"/> -->
+  <!-- <circle cx="54" cy="54" r="36" fill="none" stroke="#ffcc00" stroke-width="0.5" stroke-dasharray="2 1.5"/> -->
+
+</svg>

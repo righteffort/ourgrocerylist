@@ -1,0 +1,733 @@
+package org.righteffort.ourgrocerylist.ui
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.righteffort.ourgrocerylist.client.FakeListOrderRepository
+import org.righteffort.ourgrocerylist.model.ItemFields
+import org.righteffort.ourgrocerylist.model.ListMetadata
+import org.righteffort.ourgrocerylist.model.User
+import org.righteffort.ourgrocerylist.repository.FakeListRepository
+import org.righteffort.ourgrocerylist.repository.FakeShoppingRepository
+private val TEST_USER = User(uid = "test-uid", email = "test@test.com")
+private const val OTHER_UID = "other-uid"
+private const val LIST_ID = "list-1"
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class ShoppingViewModelTest {
+
+    private val testDispatcher = UnconfinedTestDispatcher()
+    private lateinit var viewModel: ShoppingViewModel
+    private lateinit var collectScope: CoroutineScope
+    private lateinit var fakeListRepo: FakeListRepository
+    private lateinit var fakeListOrderRepo: FakeListOrderRepository
+
+    // Monotonically increasing fake clock so timestamp comparisons are deterministic.
+    private var fakeTime = 1000L
+    private val fakeClock = { fakeTime++ }
+
+    private fun makeViewModel(
+        initialLists: List<ListMetadata> = listOf(ListMetadata(LIST_ID, "Groceries", isOwner = true, ownerUid = TEST_USER.uid)),
+        addEditorError: Exception? = null,
+        preloadedListOrder: Map<String, Long> = emptyMap(),
+    ): ShoppingViewModel {
+        fakeListOrderRepo = FakeListOrderRepository().also { it.timestamps.putAll(preloadedListOrder) }
+        fakeListRepo = FakeListRepository(initialLists, addEditorError)
+        return ShoppingViewModel(
+            currentUserFlow = MutableStateFlow(TEST_USER),
+            listRepository = fakeListRepo,
+            repositoryFactory = { _, _ -> FakeShoppingRepository() },
+            listOrderRepository = fakeListOrderRepo,
+            clock = fakeClock,
+        ).also { vm ->
+            collectScope.launch { vm.uiState.collect {} }
+        }
+    }
+
+    @BeforeEach
+    fun setUp() {
+        fakeTime = 1000L
+        Dispatchers.setMain(testDispatcher)
+        collectScope = CoroutineScope(testDispatcher)
+        viewModel = makeViewModel()
+    }
+
+    @AfterEach
+    fun tearDown() {
+        collectScope.cancel()
+        Dispatchers.resetMain()
+    }
+
+    // --- addItem ---
+
+    @Test
+    fun `initial state has empty unchecked and checked lists`() {
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+        assertTrue(viewModel.uiState.value.checkedItems.isEmpty())
+    }
+
+    @Test
+    fun `addItem puts item in uncheckedItems`() {
+        viewModel.addItem("Bread")
+        assertEquals(listOf("Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+    }
+
+    @Test
+    fun `addItem with blank name does nothing`() {
+        viewModel.addItem("   ")
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+    }
+
+    @Test
+    fun `items are sorted case-insensitively`() {
+        viewModel.addItem("Bread")
+        viewModel.addItem("banana")
+        assertEquals(
+            listOf("banana", "Bread"),
+            viewModel.uiState.value.uncheckedItems.map { it.fields.name },
+        )
+    }
+
+    @Test
+    fun `numbers sort before letters`() {
+        viewModel.addItem("Avocado")
+        viewModel.addItem("1% milk")
+        assertEquals(
+            listOf("1% milk", "Avocado"),
+            viewModel.uiState.value.uncheckedItems.map { it.fields.name },
+        )
+    }
+
+    // --- checkItem / uncheckItem ---
+
+    @Test
+    fun `checkItem moves item from unchecked to checked`() {
+        viewModel.addItem("Bread")
+        viewModel.checkItem(viewModel.uiState.value.uncheckedItems.single())
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+        assertEquals(listOf("Bread"), viewModel.uiState.value.checkedItems.map { it.fields.name })
+    }
+
+    @Test
+    fun `uncheckItem moves item from checked to unchecked`() {
+        viewModel.addItem("Bread")
+        viewModel.checkItem(viewModel.uiState.value.uncheckedItems.single())
+        viewModel.uncheckItem(viewModel.uiState.value.checkedItems.single())
+        assertTrue(viewModel.uiState.value.checkedItems.isEmpty())
+        assertEquals(listOf("Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+    }
+
+    @Test
+    fun `toggleItem checks an unchecked item`() {
+        viewModel.addItem("Bread")
+        viewModel.toggleItem(viewModel.uiState.value.uncheckedItems.single())
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+        assertEquals(listOf("Bread"), viewModel.uiState.value.checkedItems.map { it.fields.name })
+    }
+
+    @Test
+    fun `toggleItem unchecks a checked item`() {
+        viewModel.addItem("Bread")
+        viewModel.checkItem(viewModel.uiState.value.uncheckedItems.single())
+        viewModel.toggleItem(viewModel.uiState.value.checkedItems.single())
+        assertTrue(viewModel.uiState.value.checkedItems.isEmpty())
+        assertEquals(listOf("Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+    }
+
+    @Test
+    fun `checked and unchecked sections are each independently alphabetized`() {
+        listOf("Milk", "Apples", "Zucchini", "Bread").forEach { viewModel.addItem(it) }
+        viewModel.checkItem(viewModel.uiState.value.uncheckedItems.first { it.fields.name == "Milk" })
+        viewModel.checkItem(viewModel.uiState.value.uncheckedItems.first { it.fields.name == "Zucchini" })
+        assertEquals(listOf("Apples", "Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertEquals(listOf("Milk", "Zucchini"), viewModel.uiState.value.checkedItems.map { it.fields.name })
+    }
+
+    // --- deleteItem ---
+
+    @Test
+    fun `deleteItem removes item from the list`() {
+        viewModel.addItem("Bread")
+        viewModel.deleteItem(viewModel.uiState.value.uncheckedItems.single())
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+    }
+
+    @Test
+    fun `deleteItem on nonexistent item is a no-op`() {
+        viewModel.addItem("Bread")
+        viewModel.addItem("Milk")
+        val milk = viewModel.uiState.value.uncheckedItems.first { it.fields.name == "Milk" }
+        viewModel.deleteItem(milk)
+        viewModel.deleteItem(milk) // stale reference, already gone
+        assertEquals(listOf("Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+    }
+
+    // --- editItem ---
+
+    @Test
+    fun `editItem updates name and item re-sorts`() {
+        viewModel.addItem("Milk")
+        viewModel.addItem("Apples")
+        val milk = viewModel.uiState.value.uncheckedItems.first { it.fields.name == "Milk" }
+        viewModel.editItem(milk, milk.fields.copy(name = "Zucchini"))
+        assertEquals(listOf("Apples", "Zucchini"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+    }
+
+    @Test
+    fun `editItem updates quantity, item stays in same list position`() {
+        viewModel.addItem("Apples")
+        viewModel.addItem("Milk")
+        val milk = viewModel.uiState.value.uncheckedItems.first { it.fields.name == "Milk" }
+        viewModel.editItem(milk, milk.fields.copy(quantity = 3.0))
+        assertEquals(listOf("Apples", "Milk"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertEquals(3.0, viewModel.uiState.value.uncheckedItems.first { it.fields.name == "Milk" }.fields.quantity)
+    }
+
+    @Test
+    fun `editItem with blank name applies fields as given`() {
+        // The dialog disables Save when name is blank; the ViewModel does not guard this.
+        viewModel.addItem("Bread")
+        val item = viewModel.uiState.value.uncheckedItems.single()
+        viewModel.editItem(item, item.fields.copy(name = ""))
+        assertEquals("", viewModel.uiState.value.uncheckedItems.single().fields.name)
+    }
+
+    @Test
+    fun `item has default quantity of 1_0`() {
+        viewModel.addItem("Bread")
+        assertEquals(1.0, viewModel.uiState.value.uncheckedItems.single().fields.quantity)
+    }
+
+    // --- dialog state ---
+
+    @Test
+    fun `openEditDialog sets dialogState with correct title, fields, and showDelete`() {
+        viewModel.addItem("Bread")
+        val item = viewModel.uiState.value.uncheckedItems.single()
+        viewModel.openEditDialog(item)
+        val dialog = viewModel.dialogState.value!!
+        assertEquals("Edit item", dialog.title)
+        assertEquals(item.fields, dialog.initialFields)
+        assertTrue(dialog.showDelete)
+    }
+
+    @Test
+    fun `openAddDialog sets dialogState with correct title, fields, and showDelete`() {
+        viewModel.openAddDialog("Bread")
+        val dialog = viewModel.dialogState.value!!
+        assertEquals("Add item", dialog.title)
+        assertEquals(ItemFields(name = "Bread"), dialog.initialFields)
+        assertFalse(dialog.showDelete)
+    }
+
+    @Test
+    fun `dismissDialog sets dialogState to null`() {
+        viewModel.openAddDialog("Bread")
+        viewModel.dismissDialog()
+        assertNull(viewModel.dialogState.value)
+    }
+
+    @Test
+    fun `edit dialog onSave applies edit and dismisses`() {
+        viewModel.addItem("Bread")
+        val item = viewModel.uiState.value.uncheckedItems.single()
+        viewModel.openEditDialog(item)
+        viewModel.dialogState.value!!.onSave(item.fields.copy(name = "Milk"))
+        assertEquals(listOf("Milk"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertNull(viewModel.dialogState.value)
+    }
+
+    @Test
+    fun `add dialog onSave adds item and dismisses`() {
+        viewModel.openAddDialog("Bread")
+        viewModel.dialogState.value!!.onSave(ItemFields(name = "Bread"))
+        assertEquals(listOf("Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertNull(viewModel.dialogState.value)
+    }
+
+    @Test
+    fun `edit dialog onDelete deletes item and dismisses`() {
+        viewModel.addItem("Bread")
+        val item = viewModel.uiState.value.uncheckedItems.single()
+        viewModel.openEditDialog(item)
+        viewModel.dialogState.value!!.onDelete!!.invoke()
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+        assertNull(viewModel.dialogState.value)
+    }
+
+    @Test
+    fun `openAddDialog onDelete is null`() {
+        viewModel.openAddDialog("Bread")
+        assertNull(viewModel.dialogState.value!!.onDelete)
+    }
+
+    // --- shareList ---
+
+    @Test
+    fun `shareList on success dismisses dialog and emits 'Editor added'`() {
+        val vm = makeViewModel()
+        vm.openShareListDialog()
+        val messages = mutableListOf<String>()
+        collectScope.launch { vm.errors.collect { messages.add(it) } }
+        vm.shareList("editor@example.com")
+        assertNull(vm.shareListDialogState.value)
+        assertEquals(listOf("Editor added"), messages)
+    }
+
+    @Test
+    fun `shareList on failure keeps dialog open with error message`() {
+        val vm = makeViewModel(addEditorError = Exception("user not found"))
+        vm.openShareListDialog()
+        vm.shareList("editor@example.com")
+        assertEquals("user not found", vm.shareListDialogState.value?.errorMessage)
+    }
+
+    @Test
+    fun `openShareListDialog shows dialog with no error`() {
+        viewModel.openShareListDialog()
+        assertEquals(ShareListDialogState(), viewModel.shareListDialogState.value)
+    }
+
+    @Test
+    fun `dismissShareListDialog hides dialog`() {
+        viewModel.openShareListDialog()
+        viewModel.dismissShareListDialog()
+        assertNull(viewModel.shareListDialogState.value)
+    }
+
+    // --- undo/redo ---
+
+    @Test
+    fun `undoAvailable is false initially, true after addItem`() {
+        assertFalse(viewModel.uiState.value.undoAvailable)
+        viewModel.addItem("Bread")
+        assertTrue(viewModel.uiState.value.undoAvailable)
+    }
+
+    @Test
+    fun `undo after addItem removes the item and sets redoAvailable true`() {
+        viewModel.addItem("Bread")
+        viewModel.undo()
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+        assertFalse(viewModel.uiState.value.undoAvailable)
+        assertTrue(viewModel.uiState.value.redoAvailable)
+    }
+
+    @Test
+    fun `redo after undo re-adds the item`() {
+        viewModel.addItem("Bread")
+        viewModel.undo()
+        viewModel.redo()
+        assertEquals(listOf("Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertFalse(viewModel.uiState.value.redoAvailable)
+    }
+
+    @Test
+    fun `redo is cleared when new action is taken after undo`() {
+        viewModel.addItem("Bread")
+        viewModel.addItem("Milk")
+        viewModel.undo()
+        assertTrue(viewModel.uiState.value.redoAvailable)
+        viewModel.addItem("Apples")
+        assertFalse(viewModel.uiState.value.redoAvailable)
+        assertEquals(listOf("Apples", "Bread"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+    }
+
+    @Test
+    fun `undoAvailable and redoAvailable reflect state throughout mixed sequence`() {
+        viewModel.addItem("Bread")
+        viewModel.addItem("Milk")
+
+        viewModel.undo()
+        assertTrue(viewModel.uiState.value.undoAvailable)
+        assertTrue(viewModel.uiState.value.redoAvailable)
+
+        viewModel.undo()
+        assertFalse(viewModel.uiState.value.undoAvailable)
+        assertTrue(viewModel.uiState.value.redoAvailable)
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+
+        viewModel.redo()
+        assertTrue(viewModel.uiState.value.undoAvailable)
+        assertTrue(viewModel.uiState.value.redoAvailable)
+
+        viewModel.redo()
+        assertTrue(viewModel.uiState.value.undoAvailable)
+        assertFalse(viewModel.uiState.value.redoAvailable)
+        assertEquals(listOf("Bread", "Milk"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+    }
+
+    // --- list operations ---
+
+    @Test
+    fun `uiState reflects current list name and isOwner`() {
+        assertEquals("Groceries", viewModel.uiState.value.currentListName)
+        assertTrue(viewModel.uiState.value.isOwner)
+    }
+
+    @Test
+    fun `uiState lists contains all lists`() {
+        assertEquals(listOf(ListMetadata(LIST_ID, "Groceries", isOwner = true, ownerUid = TEST_USER.uid)), viewModel.uiState.value.lists)
+    }
+
+    @Test
+    fun `addList creates new list and switches to it`() {
+        viewModel.addList("Hardware")
+        val lists = viewModel.uiState.value.lists
+        assertEquals(2, lists.size)
+        assertEquals("Hardware", viewModel.uiState.value.currentListName)
+    }
+
+    @Test
+    fun `addList with blank name does nothing`() {
+        viewModel.addList("  ")
+        assertEquals(1, viewModel.uiState.value.lists.size)
+    }
+
+    @Test
+    fun `selectList switches current list`() {
+        viewModel.addList("Hardware")
+        val hardwareId = viewModel.uiState.value.lists.first { it.name == "Hardware" }.id
+        viewModel.selectList(LIST_ID)
+        assertEquals("Groceries", viewModel.uiState.value.currentListName)
+        viewModel.selectList(hardwareId)
+        assertEquals("Hardware", viewModel.uiState.value.currentListName)
+    }
+
+    @Test
+    fun `undo stacks are independent per list`() {
+        viewModel.addItem("Bread")
+        assertTrue(viewModel.uiState.value.undoAvailable)
+
+        viewModel.addList("Hardware")
+        // New list: undo stack should be empty
+        assertFalse(viewModel.uiState.value.undoAvailable)
+
+        viewModel.selectList(LIST_ID)
+        // Back to Groceries: undo should still be available
+        assertTrue(viewModel.uiState.value.undoAvailable)
+    }
+
+    @Test
+    fun `undo on one list does not affect items on another list`() {
+        viewModel.addItem("Bread")
+        viewModel.addList("Hardware")
+        val hardwareId = viewModel.uiState.value.lists.first { it.name == "Hardware" }.id
+        viewModel.addItem("Drill")
+        viewModel.selectList(LIST_ID)
+        viewModel.undo()
+        assertTrue(viewModel.uiState.value.uncheckedItems.isEmpty())
+        viewModel.selectList(hardwareId)
+        assertEquals(listOf("Drill"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertTrue(viewModel.uiState.value.undoAvailable)
+    }
+
+    @Test
+    fun `renameCurrentList updates list name`() {
+        viewModel.renameCurrentList("Weekly Shop")
+        assertEquals("Weekly Shop", viewModel.uiState.value.currentListName)
+    }
+
+    @Test
+    fun `renameCurrentList with blank name does nothing`() {
+        viewModel.renameCurrentList("  ")
+        assertEquals("Groceries", viewModel.uiState.value.currentListName)
+    }
+
+    @Test
+    fun `deleteCurrentList removes list and falls back to another`() {
+        viewModel.addList("Hardware")
+        assertEquals("Hardware", viewModel.uiState.value.currentListName)
+        viewModel.deleteCurrentList()
+        assertEquals(1, viewModel.uiState.value.lists.size)
+        assertEquals("Groceries", viewModel.uiState.value.currentListName)
+    }
+
+    @Test
+    fun `deleteCurrentList on last list recreates default Groceries list`() {
+        viewModel.deleteCurrentList()
+        // FakeListRepository deletes the list, then the ViewModel's init block
+        // detects empty list and calls createList("Groceries").
+        assertEquals(1, viewModel.uiState.value.lists.size)
+        assertEquals("Groceries", viewModel.uiState.value.currentListName)
+    }
+
+    @Test
+    fun `non-owner list hides isOwner in uiState`() {
+        val vm = makeViewModel(
+            initialLists = listOf(ListMetadata("shared-1", "Their List", isOwner = false, ownerUid = OTHER_UID)),
+        )
+        assertFalse(vm.uiState.value.isOwner)
+    }
+
+    @Test
+    fun `with no owned list and no prior usage, auto-selects first list`() {
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata("b", "B_List", isOwner = false, ownerUid = OTHER_UID),
+                ListMetadata("a", "Apples", isOwner = false, ownerUid = OTHER_UID),
+            ),
+        )
+        // No ts > 0, no isOwner → lists.first() in snapshot order, which is B_List.
+        assertEquals("B_List", vm.uiState.value.currentListName)
+    }
+
+    @Test
+    fun `owned list is auto-selected and sorts to top, unvisited lists follow alphabetically`() {
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata("c", "C_List", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata("a", "A_List", isOwner = false, ownerUid = OTHER_UID),
+            ),
+        )
+        // C_List is auto-selected (isOwner=true) and gets a real timestamp; A_List gets 0.
+        assertEquals(listOf("C_List", "A_List"), vm.uiState.value.lists.map { it.name })
+        assertEquals("C_List", vm.uiState.value.currentListName)
+
+        vm.addList("B_List")
+        // B_List is most recent (just created+selected), C_List next, A_List still unvisited.
+        assertEquals(listOf("B_List", "C_List", "A_List"), vm.uiState.value.lists.map { it.name })
+    }
+
+    // --- list dialog visibility ---
+
+    @Test
+    fun `openAddListDialog and dismissAddListDialog toggle visibility`() {
+        assertFalse(viewModel.addListDialogVisible.value)
+        viewModel.openAddListDialog()
+        assertTrue(viewModel.addListDialogVisible.value)
+        viewModel.dismissAddListDialog()
+        assertFalse(viewModel.addListDialogVisible.value)
+    }
+
+    @Test
+    fun `openRenameListDialog and dismissRenameListDialog toggle visibility`() {
+        assertFalse(viewModel.renameListDialogVisible.value)
+        viewModel.openRenameListDialog()
+        assertTrue(viewModel.renameListDialogVisible.value)
+        viewModel.dismissRenameListDialog()
+        assertFalse(viewModel.renameListDialogVisible.value)
+    }
+
+    @Test
+    fun `openDeleteListDialog and dismissDeleteListDialog toggle visibility`() {
+        assertFalse(viewModel.deleteListDialogVisible.value)
+        viewModel.openDeleteListDialog()
+        assertTrue(viewModel.deleteListDialogVisible.value)
+        viewModel.dismissDeleteListDialog()
+        assertFalse(viewModel.deleteListDialogVisible.value)
+    }
+
+    // --- importListFromCsv ---
+
+    private val _simpleCsv = "name,quantity,checked\nApples,3.0,false\nBread,1.0,true"
+
+    @Test
+    fun `importListFromCsv creates list with correct items and switches to it`() {
+        viewModel.importListFromCsv("Shopping", _simpleCsv)
+        assertEquals("Shopping", viewModel.uiState.value.currentListName)
+        assertEquals(2, viewModel.uiState.value.lists.size)
+        assertEquals(listOf("Apples"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertEquals(listOf("Bread"), viewModel.uiState.value.checkedItems.map { it.fields.name })
+        assertEquals(3.0, viewModel.uiState.value.uncheckedItems.single().fields.quantity)
+        assertNull(viewModel.importListDialogState.value)
+    }
+
+    @Test
+    fun `importListFromCsv with taken name updates dialog with proposed name and error`() {
+        // "Groceries" already exists in the initial list
+        viewModel.openImportListDialog()
+        viewModel.importListFromCsv("Groceries", _simpleCsv)
+        val ds = viewModel.importListDialogState.value!!
+        assertEquals("Groceries (1)", ds.proposedName)
+        assertTrue(ds.errorMessage!!.contains("Groceries"))
+        // No new list created
+        assertEquals(1, viewModel.uiState.value.lists.size)
+    }
+
+    @Test
+    fun `importListFromCsv succeeds on second attempt with proposed name`() {
+        viewModel.openImportListDialog()
+        viewModel.importListFromCsv("Groceries", _simpleCsv)
+        assertEquals("Groceries (1)", viewModel.importListDialogState.value?.proposedName)
+        viewModel.importListFromCsv("Groceries (1)", _simpleCsv)
+        assertEquals("Groceries (1)", viewModel.uiState.value.currentListName)
+        assertEquals(listOf("Apples"), viewModel.uiState.value.uncheckedItems.map { it.fields.name })
+        assertEquals(listOf("Bread"), viewModel.uiState.value.checkedItems.map { it.fields.name })
+        assertNull(viewModel.importListDialogState.value)
+    }
+
+    @Test
+    fun `importListFromCsv name collision is case-insensitive`() {
+        viewModel.openImportListDialog()
+        viewModel.importListFromCsv("groceries", _simpleCsv)
+        assertEquals("groceries (1)", viewModel.importListDialogState.value?.proposedName)
+    }
+
+    @Test
+    fun `importListFromCsv proposes max existing suffix plus one`() {
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata(LIST_ID, "Groceries", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata("list-2", "Groceries (2)", isOwner = true, ownerUid = TEST_USER.uid),
+            ),
+        )
+        vm.openImportListDialog()
+        vm.importListFromCsv("Groceries", _simpleCsv)
+        assertEquals("Groceries (3)", vm.importListDialogState.value?.proposedName)
+    }
+
+    @Test
+    fun `importListFromCsv with CSV parse error shows error in dialog and creates no list`() {
+        viewModel.openImportListDialog()
+        viewModel.importListFromCsv("New List", "quantity,checked\n1.0,false")
+        val ds = viewModel.importListDialogState.value!!
+        assertNull(ds.proposedName)
+        assertTrue(ds.errorMessage!!.contains("name"))
+        assertEquals(1, viewModel.uiState.value.lists.size)
+    }
+
+    @Test
+    fun `imported items are not on the undo stack`() {
+        viewModel.importListFromCsv("Shopping", _simpleCsv)
+        assertFalse(viewModel.uiState.value.undoAvailable)
+    }
+
+    @Test
+    fun `openImportListDialog and dismissImportListDialog toggle state`() {
+        assertNull(viewModel.importListDialogState.value)
+        viewModel.openImportListDialog()
+        assertEquals(ImportListDialogState(), viewModel.importListDialogState.value)
+        viewModel.dismissImportListDialog()
+        assertNull(viewModel.importListDialogState.value)
+    }
+
+    @Test
+    fun `importListFromCsv with blank name does nothing`() {
+        viewModel.importListFromCsv("  ", _simpleCsv)
+        assertEquals(1, viewModel.uiState.value.lists.size)
+    }
+
+    // --- MRU list ordering ---
+
+    @Test
+    fun `unvisited lists on initial load sort alphabetically by name`() {
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata("c", "C_List", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata("a", "a_list", isOwner = false, ownerUid = OTHER_UID),
+                ListMetadata("b", "B_List", isOwner = false, ownerUid = OTHER_UID),
+            ),
+        )
+        // C_List auto-selected (isOwner=true), gets real timestamp; a_list and B_List get 0.
+        assertEquals(listOf("C_List", "a_list", "B_List"), vm.uiState.value.lists.map { it.name })
+    }
+
+    @Test
+    fun `selectList moves list to top`() {
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata(LIST_ID, "Groceries", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata("list-2", "Hardware", isOwner = false, ownerUid = OTHER_UID),
+            ),
+        )
+        assertEquals("Groceries", vm.uiState.value.lists.first().name)
+
+        vm.selectList("list-2")
+        assertEquals("Hardware", vm.uiState.value.lists.first().name)
+    }
+
+    @Test
+    fun `newly shared list appears 2nd from top`() {
+        // Groceries auto-selected on startup.
+        fakeListRepo.simulateExternalListAdd(
+            ListMetadata("shared-1", "Shared List", isOwner = false, ownerUid = OTHER_UID),
+        )
+        val names = viewModel.uiState.value.lists.map { it.name }
+        assertEquals("Groceries", names[0])
+        assertEquals("Shared List", names[1])
+    }
+
+    @Test
+    fun `multiple shared lists arriving in separate snapshots appear alphabetically after current list`() {
+        // Groceries auto-selected on startup; timestamp = 1000.
+        fakeListRepo.simulateExternalListAdd(
+            ListMetadata("shared-z", "Z List", isOwner = false, ownerUid = OTHER_UID),
+        )
+        // Z List gets sharedTs = 1000 - 1 = 999.
+        fakeListRepo.simulateExternalListAdd(
+            ListMetadata("shared-a", "A List", isOwner = false, ownerUid = OTHER_UID),
+        )
+        // A List gets sharedTs = max(1000, 999) - 1 = 999 (same as Z List).
+        // Both at 999 → alphabetical tiebreak: A List before Z List.
+        assertEquals(
+            listOf("Groceries", "A List", "Z List"),
+            viewModel.uiState.value.lists.map { it.name },
+        )
+    }
+
+    @Test
+    fun `newly shared lists land 2nd and 3rd - switching list puts it first`() {
+        val hardwareId = "list-2"
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata(LIST_ID, "Groceries", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata(hardwareId, "Hardware", isOwner = false, ownerUid = OTHER_UID),
+            ),
+        )
+        // Groceries auto-selected; Hardware unvisited (ts=0).
+        fakeListRepo.simulateExternalListAdd(
+            ListMetadata("p", "P List", isOwner = false, ownerUid = OTHER_UID),
+        )
+        fakeListRepo.simulateExternalListAdd(
+            ListMetadata("q", "Q List", isOwner = false, ownerUid = OTHER_UID),
+        )
+        // Both shared lists land at sharedTs = max(Groceries_ts, Hardware_ts) - 1.
+        // Alphabetical tiebreak puts P List before Q List. Hardware (ts=0) remains last.
+        assertEquals(
+            listOf("Groceries", "P List", "Q List", "Hardware"),
+            vm.uiState.value.lists.map { it.name },
+        )
+
+        vm.selectList(hardwareId)
+        assertEquals(
+            listOf("Hardware", "Groceries", "P List", "Q List"),
+            vm.uiState.value.lists.map { it.name },
+        )
+    }
+
+    @Test
+    fun `deleted list is removed from order tracking`() {
+        viewModel.deleteCurrentList()
+        assertFalse(fakeListOrderRepo.timestamps.containsKey(LIST_ID))
+    }
+
+    @Test
+    fun `on reopen, app selects and sorts to the most recently used list`() {
+        // Simulate a prior session where Hardware was most recently used.
+        val hardwareId = "list-hardware"
+        val vm = makeViewModel(
+            initialLists = listOf(
+                ListMetadata(LIST_ID, "Groceries", isOwner = true, ownerUid = TEST_USER.uid),
+                ListMetadata(hardwareId, "Hardware", isOwner = false, ownerUid = OTHER_UID),
+            ),
+            preloadedListOrder = mapOf(LIST_ID to 500L, hardwareId to 999L),
+        )
+        // Hardware has the highest preloaded timestamp: auto-selected and sorts first.
+        assertEquals("Hardware", vm.uiState.value.currentListName)
+        assertEquals(listOf("Hardware", "Groceries"), vm.uiState.value.lists.map { it.name })
+    }
+}

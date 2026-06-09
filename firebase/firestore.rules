@@ -1,0 +1,93 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Remove when we want to make public
+    function isAllowedUser() {
+      return
+          request.auth != null &&
+          (request.auth.token.email in [
+              'tromer@gmail.com',
+              'sbromer@gmail.com',
+              'theromer9@gmail.com',
+              'thr.notes@gmail.com'
+              ]
+              || request.auth.token.email.matches('.*@test\\.invalid'));
+    }
+
+    // CollectionGroup read for editor list discovery.
+    // The per-path /users/{ownerId}/lists/{listId} rules below cover get and
+    // owner-scoped list queries; this rule covers collectionGroup queries
+    // (collectionGroup("lists").whereArrayContains("editorUids", uid)).
+    // The query filter `where('editorUids', 'array-contains', uid)` and this
+    // rule's `request.auth.uid in resource.data.editorUids` check are
+    // compatible, so the emulator accepts the query.
+    match /{path=**}/lists/{listId} {
+      allow read: if isAllowedUser()
+                  && resource != null
+                  && resource.data.editorUids != null
+                  && request.auth.uid in resource.data.editorUids;
+    }
+
+    match /users/{ownerId}/lists/{listId} {
+      // For list document rules: resource IS the list document, so read editorUids
+      // directly rather than calling get(), which would be self-referential during
+      // list/collectionGroup query evaluation and causes a rules error.
+      function isEditor() {
+        return
+            resource != null &&
+            resource.data.editorUids != null &&
+            request.auth.uid in resource.data.editorUids;
+      }
+
+      function hasAccess() {
+        return request.auth.uid == ownerId || isEditor();
+      }
+
+      // For subcollection rules: resource is the item/notification, not the list
+      // document. get() is required to read the list ACLs.
+      // Guard against get() returning null when the list document hasn't been
+      // committed to the server yet; accessing .data on null causes a rules error.
+      function hasAccessViaList() {
+        let listDoc = get(/databases/$(database)/documents/users/$(ownerId)/lists/$(listId));
+        return
+            request.auth.uid == ownerId ||
+            (listDoc != null &&
+             listDoc.data.editorUids != null &&
+             request.auth.uid in listDoc.data.editorUids);
+      }
+
+      // List document itself.
+      // resource == null means the document doesn't exist; allow the owner to read
+      // it so the app can check existence before creating.
+      allow read:
+          if isAllowedUser() &&
+             ((resource == null && request.auth.uid == ownerId) || hasAccess());
+      allow create:
+          // Disallow creating a list whose owner.uid doesn't match the path owner.
+          if isAllowedUser() &&
+             request.auth.uid == ownerId &&
+             request.resource.data.owner.uid == request.auth.uid;
+      allow update:
+          // Disallow unilateral ownership transfer, even by owner.
+          if isAllowedUser() &&
+             request.auth.uid == ownerId &&
+             request.resource.data.owner.uid == request.auth.uid;
+      allow delete:
+          if isAllowedUser() && request.auth.uid == ownerId;
+
+      match /items/{itemId} {
+        allow read, write:
+            if isAllowedUser() && hasAccessViaList();
+      }
+
+      // Notifications subcollection — owners and editors can read and delete.
+      // Relies on app logic to avoid client A reading/deleting client B's notifications.
+      match /notifications/{clientId}/pending/{notificationId} {
+        allow read, delete: if isAllowedUser() && hasAccessViaList();
+        // Only Cloud Function writes notifications
+        allow create, update: if false;
+      }
+    }
+  }
+}

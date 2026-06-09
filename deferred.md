@@ -1,0 +1,161 @@
+These aspects have not yet been fully designed and implemented and are deferred to a later phase. See also unimplemented.md
+- yikes, something is up with undo, I unchecked basil and can't undo to check it. Reproducible if new home of basil is not in vi ewport
+- Search button
+- Maybe +/- inside a row
+- Can I move the whole project intact to a different owner ... Preserving all key IDs, auth fun, etc? Ok if users have to login again
+- Too easy to swipe accidentally e.g. while scrolling ... Even with no horizontal motion
+- No visual FB when item is successfully added
+- "To the glass"  testing whatever it's called
+- Beautiful swipe animations like Gmail app
+- Be a target for sharing csvs
+- maybe tune uncheck/check animation, see unimplemented.md
+- BUG: sometimes focus moves with the swiped item ?!?!?!?
+- BUG: user A creates stuff, shares with user B; user B runs for the first time -- overflow menu is only partially populated; espcially, 'import' is missing.
+- Test the UX as a list editor
+- Nice to have: editor can rename list
+- Sign out is ugly:
+  - Ephemeral permission denied (should revert to "loading"
+  - Cancel login goes to "Something went wrong"
+  - Affordances in import are weird, Import doesn't change appearance once file is selected
+- Divider between checked/unchecked is too short
+- Delay during adding editor is mysterious
+- Toasts aren't very toasty
+- Nice to have:
+  - Multiselect import
+  - Multiselect share
+- Proposed imported list name should be trimmed
+- Importing with dup name didn't work? Confusing at least
+- FR: move item to list
+- change UndoRepository directory
+- high-level logging even in prod builds
+- maybe give a nicer way to recover from "can't connect to emulator" than deleting app data or starting the emulator and/or running adb reverse
+- delete list trigger is broken after refactor.
+- add a delete user trigger.
+- probably an integration test for undo/redo stack pruning
+- make account & data deletion easy for users (not just 'email me') https://support.google.com/googleplay/android-developer/answer/13327111
+- write a privacy policy
+- automated backup of firestore (encrypt with per user keys and throw away the key on account deletion)
+- allow EU users
+- add one or more tests to @app/src/test/java/org/righteffort/ourgrocerylist/ResilienceIntegrationTest.kt that exercise competing list additions and deletions
+- continue the stashed work in ShoppingViewModel and IntegrationTestFixtures in session4-resilience-torture-tests ... e.g. the string "_pendingAddListIds" or "compensation" in the former,  "internal suspend fun TestUser.disableNetwork" in the latter.
+- spinner/loading instead of mysterious ".." list on startup would be nice
+- run integration tests in both disconnected and connected mode
+  - `FirebaseFirestore.getInstance(userA.app).disableNetwork().await()` before, `enableNetwork` after
+- together
+  - review for code that compromises strong typechecking (e.g. by using typescript syntax, overly permissive casts in any language)
+  - review for swallowed errors
+  - review locations that throw 'fatal' errors to see if they are recoverable at a lower level than the application 'root'
+- behavior when firebase functions are unavailable is weak: "INTERNAL"
+- behavior when creating list and firestore offline is weak (at least i think that's the cause of this): PERMISSION_DENIED: evaluation error at L87:16 for 'list' @ L87, Null value error. for 'list' @ L87. Or maybe worse, silently does nothing!
+- metadata in lists and items: at least creation and modification time
+- allowlist in firestore `authorizedUsers` collection of empty documents with email as id, then `function isAuthorized() { return request.auth != null && exists(/databases/$(database)/documents/authorizedUsers/$(request.auth.email)); }`
+- TODOs generally
+- nail down ownership model for firebase-related objects and how to
+  support multiple instances of ShoppingViewModel in integration tests.
+  - in theory:
+    - probably need to login -> authToken
+	- probably need to invent clientId
+	- need to make all firestore + functions calls use that authToken
+	- SVM *might* need to plumb that stuff further down but you really hope not.
+  - how it is [all f'ed up with weird injection points]
+    - OurGroceryListApp seems to orchestrate
+	  - OGLA owns Firestore observer, parameterized by User. User becomes non-null when auth completes.
+	  - OGLA owns clientId (set async)
+	  - OGLA owns listRepository which weirdly needs a firestore, the userflow (why?), callDeleteList (very weird)
+	  - OGLA.onCreate is sort of main but just connects to emulators
+	  - BTW I don't see any coordination of state initialization in OGLA. Ok StateFlow<User?> is one piece
+	- MainActivity has a SVM initialized via a factory for DI (some jetpack compose magic)
+    - SVM takes a whole pile of stuff for injection, why so much?
+	  - currentUserFlow: StateFlow<User?>
+	  - a ListRepository
+	  - a ShoppingRepository factory (argument is string)
+	  - a SharingRepository
+	  - appErrors, just for bubbling up errors I think
+	  - seems like it just organically grew over time?
+- sits in a fast fail loop if unable to create initial list, no backoff at all
+- check that https://console.cloud.google.com/run/detail/us-west1/deletelist/security?project=ourgrocerylist doesn't say public access
+- coderabbit feedback
+- bug: add editor succeeds but dialog box stays up
+- persist undo/redo
+- persist selected list
+- sensible error handling
+- conflict detection and notification
+- email and or in-app notifications with invites to newly shared lists.
+  - search for invitee in https://gemini.google.com/app/8aac15be2e66cec4 for some help
+- removing editors. must update editors and editorUids fields transactionally in FirestoreListRepository
+- handling new editors who have never signed into the app
+- displaying current list owner and editors in the app
+- once we have authentication (including association of clientIds with
+  user ids), conflict notifications can include the display name of
+  the other party: "Ted overwrote your change", "You overwrote
+  Claude's change".
+- display fine-tuning, e.g. more compact view; light/dark/auto
+- small/large fonts (is there a system setting that is conventional to
+  follow instead of doing our own thing?)
+- cleaner app handling when 'add editor' fails on the server in any way
+- cleaner handling when user declines to login via Google or login fails
+- app disallows sharing with improperly formatted email address
+- in list selector indicate owner for lists shared with user
+- prevent user from creating list that duplicates name of a list they
+  own. ok to duplicate name of list shared with them.  user owns first
+  followed by shared lists; sort those by owner email
+- display name for users (and use that if available in place of email
+  for list sorting; show email in UI as 'display name' when display
+  name is unset)
+- customizable display name for self
+- release on f-droid
+- use app check
+- release on Play Store
+- deploy cloud function & firestore.rules
+- fancy animations
+  - **Check:** Checkbox fills with accent color and checkmark. Once animation completes, row collapses and item cross-fades into its alphabetical position in the checked section. Viewport stays anchored to the unchecked section — does not follow the item.
+  - **Uncheck:** Checkbox drains (checkmark disappears, border goes gray). Row collapses and item appears in the unchecked section. Viewport stays in the checked section.
+  - **Delete:** Row flushes light red, then slides horizontally off the left edge while collapsing vertically. A trashcan icon materializes at the bottom of the screen, appears to receive the deleted item (lid opens and closes), then fades out. No permanent trash list.
+  -Remote mutations (from another user) trigger the same animations as local ones, minus user-initiated affordances (e.g. no trashcan arc for remote deletes — just the red flush and slide)- autocomplete in add
+  - basic (system-provided)
+  - assist user to find exist checked items
+  - maybe domain-aware
+- logout
+- account deletion
+- export all my lists as zip
+- unit tests for firestore security rules
+- lists trash can
+- items trash can (per list)
+- integration tests
+- re-order lists
+- search (all lists? within list? selected lists?)
+- play store
+
+These are hygiene issues that may have been missed
+- review for garbage unit tests (e.g. that just restate the implementation w/mocks instead of the effects)
+
+These aspects might never be implemented
+- crashlytics
+- CICD
+- build error reporting
+- integration tests add test users to firestore whitelist, though realistically that means editing the string form of the rules one way or another
+- user-selected CSV import headers
+- detection of conflicts between mutations and deletes, presumably involving tombstones
+- server-side validation of client-provided fingerprints
+- maintaining a list of 'invited editors' (email addresses) and
+  generating invitations to install the app when lists are shared, and
+  something like a 'login' function at app startup that updates
+  'invited editors' and 'editors' referencing the user on their first
+  login, and is a no-op afterward, or something (race conditions might
+  make this a little complicated)
+- Support running on an emulated device, which would required using
+  the emulator loopback address (`10.0.2.2`) in place of `localhost`
+  when configuring the app to connect to the emulator.
+- internationalization
+- accessibility beyond what we get for free
+- clean up orphaned or abandoned state in Firestore
+- "semantic conflict detection" and "semantic undo/redo pruning" -- see field-level pruning in conflict-detection-design.md
+- write "bring your own google cloud project" instructions:
+  - for all functions (e.g. is for emailToUid)
+	- gcloud --project ourgrocerylist functions add-invoker-policy-binding emailToUid --region=us-west1   --member="allUsers"
+	- gcloud run services get-iam-policy projects/ourgrocerylist/locations/us-west1/services/emailtouid
+- write terraform etc. to bootstrap cloud project
+
+These aspects will almost certainly never be implemented.
+- Vestiges of obsolete design
+  - Proxying mutations through a cloud function, along with a request queue.

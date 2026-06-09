@@ -1,0 +1,294 @@
+description,upc,quantity,done,unit,price,note,coupon_amount,coupon_type,coupon_note,tax_free,category
+"Portobello mushrooms",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Black olives",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Raspberry jam",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Condiments
+"Veggies for grilling",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Vinegar, apple cider",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Fresh thyme",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Herbs & Spices
+"Wild rice",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Beans & Grains
+"Broccoli/Cauliflower florets",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Spiced cider",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cheese, cheddar slices",,1.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Rice, white jasmine",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Coconut milk",,4.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Dairy
+"Butter",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Dairy
+"Milk, 1%",,1.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Sausage, sweet Italian chicken",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Granulated sugar",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Bakery & Bread
+"Red pepper flakes",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Herbs & Spices
+"Lime",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Beverages
+"Bourbon vanilla",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Chopped green chilies",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Baking & Cooking
+"Cheese, shredded mozzarella",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Mandarins",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Bread, Whole Grain Sourdough",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Bakery & Bread
+"Cocoa powder",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Baking & Cooking
+"Lavender laundry sachets",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Supreme Hydrating Eye Cream",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Harvest salad",,2.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Veggies for saute",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Onion, sweet ",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Green peas, fresh",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Vitamin C",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Vitamins & Supplements
+"Turkey sandwich",,1.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Grapes, red",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Buttermilk",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Dairy
+"Beef broth",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Meal Solutions
+"Sausage, hot Italian chicken",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Greens, herb mix",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cream, heavy",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Dairy
+"Face serum",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Carrots, shredded",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Avocado",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Cauliflower gnocchi",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Roasted red pepper pesto",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Mushrooms, brown",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Zucchini",,1.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Salad items",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Fruit",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Cheese, Gruyere",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Dairy
+"Basil (Fresh)",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Household
+"Yogurt",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Dairy
+"Tomato paste",,1.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Baking & Cooking
+"Celery",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Creamer, half and half",,1.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cheese, Cotija",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Green salsa",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Condiments
+"Green onions",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Wine, Bogle essential red",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Lentils",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Beans & Grains
+"Red lentils",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Herbs & Spices
+"Vinaigrette",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Condiments
+"Cabbage",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Tonic water",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Beverages
+"Frozen fruit",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Frozen Foods
+"Pasta sauce for lasagna",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Hard pear cider (Locust)",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Apples",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"BBQ sauce",,1.0,True,NOT_SPECIFIED,0.0,"Carolina yellow",0.0,AMOUNT,"",False,Uncategorized
+"Salsa",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Condiments
+"Lime juice",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Condiments
+"Super lemon room spritz",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Brownie mix, gluten free ",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Baking & Cooking
+"Salami",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Deli
+"Vinegar, white wine",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Wine, white",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Oatmeal",,4.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Breakfast & Cereal
+"Honey",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Condiments
+"Raspberries",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Fresh salsa",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Condiments
+"Guacamole",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Condiments
+"Taco seasoning",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Herbs & Spices
+"Bell peppers, red",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Cereal, almond butter granola",,3.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Tequila",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Wine, Beer & Spirits
+"Tomatoes, campari",,1.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cheese, shredded cheddar",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Herbs, dill dried",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cauliflower, florets",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Herbs, dried basil",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Herb, chives",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Bell pepper, orange",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Mixed greens",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Oil, olive processed",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Sugar, brown",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Bay leaves",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Herbs & Spices
+"Chicken, ground",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cilantro (Fresh)",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Herbs & Spices
+"Leeks",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Herbs, fresh parsley",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cheese - parmesan wedge",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Dairy
+"Curry powder",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Herbs & Spices
+"Salad dressing",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Condiments
+"Chicken, cooked",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Salmon",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Meat
+"Eggplant",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Edamame",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Coconut oil",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Baking & Cooking
+"Pine nuts",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Cheese, Mozzarella sticks",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Turkey, ground",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Meat
+"Cheese, Saint Andres Brie",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Extra Firm tofu",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Meat
+"Arugula",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Beer",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Mushrooms, button",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Chicken drumsticks",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Meat
+"Coconut cream",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Onion, yellow ",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Nuts, walnuts",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Face sunscreen",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Tomato paste tube",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Vinegar, white",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Brussels sprouts",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Greens, baby spinach",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Mushrooms, shiitake",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cauliflower head",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cayenne pepper",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Herbs & Spices
+"Pasta sauce",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Shallots",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Nuts, pecans raw",,3.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Lettuce, Iceberg",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Bell peppers, tricolor",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Asparagus",,0.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Cucumber, Persian",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Cream of tartar",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Herbs & Spices
+"Cabbage, shredded",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Bread, gluten free whole grain",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Herbs, dried oregano",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Greens, romaine",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Herbs, thyme dried",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Tomatoes, crushed",,4.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Tomatoes, Roma",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Vinegar, balsamic",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Vinegar, rice",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Vinegar, red wine",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Wine, Chardonnay cooking",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Sugar, granulated",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Sugar, powdered",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Herb, fresh basil",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Lettuce, green head",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Onion, red",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Ghee",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Olives, sliced",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Tuna, canned",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Bok choy",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Herbs, fresh mint",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Mushrooms, crimini",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Mustard aioli",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Condiments
+"Cheese - mozzarella, fresh",,1.0,True,EACH,0.0,"",0.0,AMOUNT,"",False,Dairy
+"Herbs, Italian parsley fresh",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Herbs, dill fresh",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Oil, sesame",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Wine, red barrel heist cab",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Oil, avocado",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Bananas",,4.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Paprika",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Herbs & Spices
+"Coconut hair mask",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Eggs",,1.0,False,DOZEN,0.0,"",0.0,AMOUNT,"",False,Dairy
+"Berries",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Cheese, grated Parmesan",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Elote seasoning",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Coffee, caf, large Bolivian medium dark or large Columbian medium dark ",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Beverages
+"Garlic, fresh",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Mayonnaise",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Condiments
+"Blueberries, frozen",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Frozen Foods
+"Ginger (Fresh)",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Household
+"Cumin seeds",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Baking & Cooking
+"Cheese, goat's milk Gouda",,1.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Hard taco shells",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Bakery & Bread
+"Tomato sauce",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Baking & Cooking
+"Pasta, spaghetti",,4.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Tomatoes, fire roasted",,3.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Pasta, rotini",,4.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Blueberries, fresh ",,1.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cat treats",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Bar soap",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Umami blend seasoning",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Espiral vinho verde",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cucumber",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Salad dressing, sesame",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Strawberries",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Beans, white, canned",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Roasted peanuts",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Baking & Cooking
+"Night Serum",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Flowers",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Melon",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Salad greens",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Kitchen & Dining
+"Chicken breast",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Meat
+"Broccoli",,1.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Chicken broth",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Canned
+"Potatoes, yukon",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Tart apples",,8.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Low sodium chicken broth",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Canned
+"French green beans",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cara cara oranges",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Broccolini",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Frozen Foods
+"Oil, olive extra virgin",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Deli meat, organic turkey ",,2.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Baking & Cooking
+"Cheese, Pepper Jack slices",,1.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Bell pepper, green",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Snacks
+"Frozen ginger",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Deli meat, organic chicken",,1.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Baking & Cooking
+"Bratwurst, precooked",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Chocolate chips, 72% dark",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Baking & Cooking
+"Mushrooms various",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Broccoli florets",,1.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Green chilies",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Dark chocolate",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Snacks
+"Sparkling water lime flavor",,4.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Beverages
+"Plain Greek yogurt",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Day serum",,3.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Dish soap, lavender? ",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Household
+"Sunscreen, zinc oxide",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Mushrooms, sliced ",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Strawberry lemonade",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Fresh or frozen corn",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Low fat sour cream",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Yellow squash",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Instant coffee",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Kitchen & Dining
+"Coffee, large, Colombia Supremo medium roast",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Fresh corn",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Onion salt",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Ricola",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Medical Products
+"Coffee rub",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Deli meat, uncured black forest organic ham",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Dried mango",,4.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cream cheese brick",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Coffee, large wake up blend",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Yogurt for Ciara",,1.0,True,NOT_SPECIFIED,0.0,"Not raspberry/blueberry. A few strawberry and 1 each of a few others. ",0.0,AMOUNT,"",False,Uncategorized
+"Nectarines",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Roasted garlic salt",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Deli meat, uncured applewood smoked ham",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Canned fatty fish",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Hummus",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Condiments
+"Carrots",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Jasmine Rice, brown",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Avocado oil",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Potatoes, red",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Wax potatoes",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Onion, white",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Olives",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Shredded cabbage mix",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Aglio Olio seasoning blend",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Feta crumbles",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Butter lettuce",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Wine, Bogle Petite Sirah",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Citrus fruit",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Fresh mint",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Fresh garlic",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Herbs & Spices
+"Salmon rub",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Sparkling water, lime or Winter sangria",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Basmati Rice, brown",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Veggies for pickles",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Brown sugar",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Beer, Peter's Brand Lager (tall white cans)",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Red salsa",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Flat parsley",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Rice, white",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Beans & Grains
+"Fresh berries",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Cream cheese, whipped ",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Dairy
+"Cough drops",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Medical Products
+"Soy milk",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Dairy
+"Cheese",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Dairy
+"Cilantro dressing",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cumin (Ground)",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Herbs & Spices
+"Lettuce, romaine",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Cheese, aged white cheddar",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Gluten-free rice crackers",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Stir fry veggies 2 kinds",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Tomatoes, cherry, 1 pint",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Lemons",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Andouille sausage",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Meat
+"Pint of cherry tomatoes",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Chicken thighs",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Meat
+"Persian cucumbers",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Sliced mushrooms",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Canned
+"Chickpeas, canned ",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"White beans, canned",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Red kidney beans, canned",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Black beans, canned",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Tofu, extra firm",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Packages stir fry veggies",,2.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
+"Spinach",,1.0,True,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Produce
+"Diced green chilies, 4 oz can",,3.0,False,NOT_SPECIFIED,0.0,"",0.0,AMOUNT,"",False,Uncategorized
